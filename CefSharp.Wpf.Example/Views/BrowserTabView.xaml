@@ -137,6 +137,9 @@
                                  Text="{Binding EvaluateJavaScriptResult}" />
                     </Grid>
                 </GroupBox>
+                <GroupBox Header="Debug">
+                    <Button Content="Show Dev Tools" Click="Button_Click" />
+                </GroupBox>
             </StackPanel>
             <StatusBar DockPanel.Dock="Bottom">
                 <ProgressBar HorizontalAlignment="Right"

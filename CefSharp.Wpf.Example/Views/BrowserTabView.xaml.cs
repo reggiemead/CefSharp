@@ -74,5 +74,10 @@ namespace CefSharp.Wpf.Example.Views
             textBox.SelectAll();
         }
 
+        private void Button_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            browser.ShowDevTools();
+        }
+
     }
 }
