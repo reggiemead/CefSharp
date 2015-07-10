@@ -60,5 +60,7 @@ namespace CefSharp
         /// <param name="mouseLeave">mouse leave</param>
         /// <param name="modifiers">click modifiers .e.g Ctrl</param>
         void SendMouseMoveEvent(int x, int y, bool mouseLeave, CefEventFlags modifiers);
+
+        bool IsWindowRenderingDisabled();
     }
 }

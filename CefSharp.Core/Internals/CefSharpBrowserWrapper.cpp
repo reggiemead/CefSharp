@@ -257,3 +257,10 @@ bool CefSharpBrowserWrapper::IsDisposed::get()
 {
     return _disposed;
 }
+
+MCefRefPtr<ClientAdapter> CefSharpBrowserWrapper::CefClient::get()
+{
+    return _cefClient;
+}
+
+

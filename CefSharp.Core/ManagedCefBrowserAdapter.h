@@ -47,6 +47,23 @@ namespace CefSharp
         int GetCefKeyboardModifiers(WPARAM wparam, LPARAM lparam);
         CefMouseEvent GetCefMouseEvent(MouseEvent^ mouseEvent);
 
+    internal:
+        //this creates a browser adapter around an existing browser instance
+        ManagedCefBrowserAdapter(IWebBrowserInternal^ webBrowserInternal, IBrowser^ browser)
+            :_isDisposed(false), _webBrowserInternal(webBrowserInternal)
+        {
+            auto browserHost = browser->GetHost();
+            if (browserHost->IsWindowRenderingDisabled() && !IRenderWebBrowser::typeid->IsAssignableFrom(webBrowserInternal->GetType()))
+            {
+                throw gcnew InvalidOperationException("To create an adapter for a windowless browser please provide an IRenderWebBrowser implementation.");
+            }
+
+            auto cefSharpBrowserWrapper = static_cast<CefSharpBrowserWrapper^>(browser);
+            _clientAdapter = cefSharpBrowserWrapper->CefClient.get();
+            _javaScriptObjectRepository = gcnew JavascriptObjectRepository();
+            _javascriptCallbackFactory = gcnew CefSharp::Internals::JavascriptCallbackFactory(_clientAdapter->GetPendingTaskRepository());
+        }
+
     public:
         ManagedCefBrowserAdapter(IWebBrowserInternal^ webBrowserInternal, bool offScreenRendering)
             : _isDisposed(false)

@@ -126,3 +126,8 @@ void CefBrowserHostWrapper::SendMouseMoveEvent(int x, int y, bool mouseLeave, Ce
 
     _browserHost->SendMouseMoveEvent(mouseEvent, mouseLeave);
 }
+
+bool CefBrowserHostWrapper::IsWindowRenderingDisabled()
+{
+    return _browserHost->IsWindowRenderingDisabled();
+}

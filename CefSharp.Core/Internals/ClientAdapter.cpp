@@ -93,7 +93,7 @@ namespace CefSharp
         {
             if (browser->IsPopup())
             {
-                auto browserWrapper = gcnew CefSharpBrowserWrapper(browser);
+                auto browserWrapper = gcnew CefSharpBrowserWrapper(browser, CefRefPtr<ClientAdapter>(this));
                 // Add to the list of popup browsers.
                 _popupBrowsers->Add(browser->GetIdentifier(), browserWrapper);
                 auto handler = _browserControl->PopupHandler;
