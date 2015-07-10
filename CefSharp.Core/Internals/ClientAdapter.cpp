@@ -872,5 +872,15 @@ namespace CefSharp
         {
             return _pendingTaskRepository;
         }
+
+        IWebBrowserInternal^ ClientAdapter::GetWebBrowser(int browserId)
+        {
+            IWebBrowserInternal^ result = nullptr;
+            if (_cefBrowser.get() && browserId == _cefBrowser->GetIdentifier())
+            {
+                result = _browserControl;
+            }
+            return result;
+        }
     }
 }

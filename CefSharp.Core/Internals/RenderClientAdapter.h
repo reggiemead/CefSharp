@@ -6,6 +6,7 @@
 
 #include "Stdafx.h"
 #include "ClientAdapter.h"
+#include "CefSharpRenderDelegate.h"
 
 using namespace msclr;
 using namespace System;
@@ -18,78 +19,58 @@ namespace CefSharp
             public CefRenderHandler
         {
         private:
-            gcroot<IWebBrowserInternal^> _webBrowserInternal;
-            gcroot<IRenderWebBrowser^> _renderWebBrowser;
-            gcroot<BitmapInfo^> _mainBitmapInfo;
-            gcroot<BitmapInfo^> _popupBitmapInfo;
+            gcroot<Dictionary<int, CefSharpRenderDelegate^>^> _renderDelegates;
 
         public:
             RenderClientAdapter(IWebBrowserInternal^ webBrowserInternal, IBrowserAdapter^ browserAdapter):
                 ClientAdapter(webBrowserInternal, browserAdapter),
-                _webBrowserInternal(webBrowserInternal)
+                _renderDelegates(gcnew Dictionary<int, CefSharpRenderDelegate^>())
             {
-                _renderWebBrowser = dynamic_cast<IRenderWebBrowser^>(webBrowserInternal);
-
-                _mainBitmapInfo = _renderWebBrowser->CreateBitmapInfo(false);
-                _popupBitmapInfo = _renderWebBrowser->CreateBitmapInfo(true);
-            }
-
-            ~RenderClientAdapter()
-            {
-                _renderWebBrowser = nullptr;
-                _webBrowserInternal = nullptr;
-
-                ReleaseBitmapHandlers(_mainBitmapInfo);
-
-                delete _mainBitmapInfo;
-                _mainBitmapInfo = nullptr;
-
-                ReleaseBitmapHandlers(_popupBitmapInfo);
-
-                delete _popupBitmapInfo;
-                _popupBitmapInfo = nullptr;
             }
 
             // CefClient
             virtual DECL CefRefPtr<CefRenderHandler> GetRenderHandler() OVERRIDE{ return this; };
 
+            virtual DECL void OnAfterCreated(CefRefPtr<CefBrowser> browser) OVERRIDE
+            {
+                ClientAdapter::OnAfterCreated(browser);
+
+                if (!browser->IsPopup())
+                {
+                    _renderDelegates->Add(browser->GetIdentifier(), 
+                        gcnew CefSharpRenderDelegate(
+                            static_cast<IRenderWebBrowser^>(GetWebBrowser(browser->GetIdentifier()))));
+                }
+            }
+
+            virtual DECL void OnBeforeClose(CefRefPtr<CefBrowser> browser) OVERRIDE
+            {
+                ClientAdapter::OnBeforeClose(browser);
+                _renderDelegates->Remove(browser->GetIdentifier());
+            }
+
             // CefRenderHandler
             virtual DECL bool GetScreenInfo(CefRefPtr<CefBrowser> browser, CefScreenInfo& screen_info) OVERRIDE
             {
-                return false;
-
-                if ((IRenderWebBrowser^)_renderWebBrowser == nullptr)
+                bool result = false;
+                CefSharpRenderDelegate^ renderDelegate;
+                if (_renderDelegates->TryGetValue(browser->GetIdentifier(), renderDelegate))
                 {
-                    return false;
+                    result = renderDelegate->GetScreenInfo(screen_info);
                 }
-
-                auto screenInfo = _renderWebBrowser->GetScreenInfo();
-
-                if (screen_info.device_scale_factor == screenInfo.ScaleFactor)
-                {
-                    return false;
-                }
-
-                screen_info.device_scale_factor = screenInfo.ScaleFactor;
-                return true;
+                return result;
             }
 
             // CefRenderHandler
             virtual DECL bool GetViewRect(CefRefPtr<CefBrowser> browser, CefRect& rect) OVERRIDE
             {
-                if ((IRenderWebBrowser^)_renderWebBrowser == nullptr)
+                bool result = false;
+                CefSharpRenderDelegate^ renderDelegate;
+                if (_renderDelegates->TryGetValue(browser->GetIdentifier(), renderDelegate))
                 {
-                    return false;
+                    result = renderDelegate->GetViewRect(rect);
                 }
-
-                auto screenInfo = _renderWebBrowser->GetScreenInfo();
-
-                //auto scaledWidth = screenInfo.Width / screenInfo.ScaleFactor;
-                //auto scaledHeight = screenInfo.Height / screenInfo.ScaleFactor;
-                //rect = CefRect(0, 0, scaledWidth, scaledHeight);
-
-                rect = CefRect(0, 0, screenInfo.Width, screenInfo.Height);
-                return true;
+                return result;
             };
 
             ///
@@ -99,7 +80,11 @@ namespace CefSharp
             /*--cef()--*/
             virtual DECL void OnPopupShow(CefRefPtr<CefBrowser> browser, bool show) OVERRIDE
             {
-                _renderWebBrowser->SetPopupIsOpen(show);
+                CefSharpRenderDelegate^ renderDelegate;
+                if (_renderDelegates->TryGetValue(browser->GetIdentifier(), renderDelegate))
+                {
+                    renderDelegate->OnPopupShow(show);
+                }
             };
 
             ///
@@ -109,94 +94,32 @@ namespace CefSharp
             /*--cef()--*/
             virtual DECL void OnPopupSize(CefRefPtr<CefBrowser> browser, const CefRect& rect) OVERRIDE
             {
-                _renderWebBrowser->SetPopupSizeAndPosition(rect.width, rect.height, rect.x, rect.y);
+                CefSharpRenderDelegate^ renderDelegate;
+                if (_renderDelegates->TryGetValue(browser->GetIdentifier(), renderDelegate))
+                {
+                    renderDelegate->OnPopupSize(rect);
+                }
             };
 
             virtual DECL void OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type, const RectList& dirtyRects,
                 const void* buffer, int width, int height) OVERRIDE
             {
-                auto bitmapInfo = type == PET_VIEW ? _mainBitmapInfo : _popupBitmapInfo;
-
-                lock l(bitmapInfo->BitmapLock);
-
-                if(bitmapInfo->DirtyRectSupport)
+                CefSharpRenderDelegate^ renderDelegate;
+                if (_renderDelegates->TryGetValue(browser->GetIdentifier(), renderDelegate))
                 {
-                    //NOTE: According to https://bitbucket.org/chromiumembedded/branches-2171-cef3/commits/ce984ddff3268a50cf9967487327e1257015b98c
-                    // There is only one rect now that's a union of all dirty regions. API Still passes in a vector
-
-                    CefRect r = dirtyRects.front();
-                    bitmapInfo->DirtyRect = CefDirtyRect(r.x, r.y, r.width, r.height);
+                    renderDelegate->OnPaint(type, dirtyRects, buffer, width, height);
                 }
-
-                auto backBufferHandle = (HANDLE)bitmapInfo->BackBufferHandle;
-
-                if (backBufferHandle == NULL || bitmapInfo->Width != width || bitmapInfo->Height != height)
-                {
-                    int pixels = width * height;
-                    int numberOfBytes = pixels * bitmapInfo->BytesPerPixel;
-                    auto fileMappingHandle = (HANDLE)bitmapInfo->FileMappingHandle;
-
-                    //Clear the reference to Bitmap so a new one is created by InvokeRenderAsync
-                    bitmapInfo->ClearBitmap();
-
-                    //Release the current handles (if not null)
-                    ReleaseBitmapHandlers(bitmapInfo);
-
-                    // Create new fileMappingHandle
-                    fileMappingHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, numberOfBytes, NULL);
-                    if (fileMappingHandle == NULL)
-                    {
-                        // TODO: Consider doing something more sensible here, since the browser will be very badly broken if this
-                        // TODO: method call fails.
-                        return;
-                    }
-
-                    backBufferHandle = MapViewOfFile(fileMappingHandle, FILE_MAP_ALL_ACCESS, 0, 0, numberOfBytes);
-                    if (backBufferHandle == NULL)
-                    {
-                        // TODO: Consider doing something more sensible here, since the browser will be very badly broken if this
-                        // TODO: method call fails.
-                        return;
-                    }
-
-                    bitmapInfo->FileMappingHandle = (IntPtr)fileMappingHandle;
-                    bitmapInfo->BackBufferHandle = (IntPtr)backBufferHandle;
-                    bitmapInfo->Width = width;
-                    bitmapInfo->Height = height;
-                    bitmapInfo->NumberOfBytes = numberOfBytes;
-                }               
-
-                CopyMemory(backBufferHandle, (void*)buffer, bitmapInfo->NumberOfBytes);
-
-                _renderWebBrowser->InvokeRenderAsync(bitmapInfo);
             };
 
             virtual DECL void OnCursorChange(CefRefPtr<CefBrowser> browser, CefCursorHandle cursor, CursorType type,
                 const CefCursorInfo& custom_cursor_info) OVERRIDE
             {
-                _renderWebBrowser->SetCursor((IntPtr)cursor, (CefSharp::CefCursorType)type);
+                CefSharpRenderDelegate^ renderDelegate;
+                if (_renderDelegates->TryGetValue(browser->GetIdentifier(), renderDelegate))
+                {
+                    renderDelegate->OnCursorChange(cursor, type, custom_cursor_info);
+                }
             };
-
-        private:
-            void ReleaseBitmapHandlers(BitmapInfo^ bitmapInfo)
-            {
-                auto backBufferHandle = (HANDLE)bitmapInfo->BackBufferHandle;
-                auto fileMappingHandle = (HANDLE)bitmapInfo->FileMappingHandle;
-
-                if (backBufferHandle != NULL)
-                {
-                    UnmapViewOfFile(backBufferHandle);
-                    backBufferHandle = NULL;
-                    bitmapInfo->BackBufferHandle = IntPtr::Zero;
-                }
-
-                if (fileMappingHandle != NULL)
-                {
-                    CloseHandle(fileMappingHandle);
-                    fileMappingHandle = NULL;
-                    bitmapInfo->FileMappingHandle = IntPtr::Zero;
-                }
-            }
 
             IMPLEMENT_REFCOUNTING(RenderClientAdapter)
         };
