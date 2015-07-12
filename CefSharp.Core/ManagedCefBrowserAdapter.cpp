@@ -29,8 +29,9 @@ void ManagedCefBrowserAdapter::CreateOffscreenBrowser(IntPtr windowHandle, Brows
 
 void ManagedCefBrowserAdapter::OnAfterBrowserCreated(int browserId)
 {
+    this->browserId = browserId;
     //browser wrapper instance has to be set up for the BrowserProcessServiceHost
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
     if (browser != nullptr)
     {
         //the js callback factory needs the browser instance to pass it to the js callback implementations for messaging purposes
@@ -59,7 +60,7 @@ void ManagedCefBrowserAdapter::OnAfterBrowserCreated(int browserId)
 
 void ManagedCefBrowserAdapter::WasResized()
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -69,7 +70,7 @@ void ManagedCefBrowserAdapter::WasResized()
 
 void ManagedCefBrowserAdapter::WasHidden(bool hidden)
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -79,7 +80,7 @@ void ManagedCefBrowserAdapter::WasHidden(bool hidden)
 
 void ManagedCefBrowserAdapter::SendFocusEvent(bool isFocused)
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -89,7 +90,7 @@ void ManagedCefBrowserAdapter::SendFocusEvent(bool isFocused)
 
 void ManagedCefBrowserAdapter::SetFocus(bool isFocused)
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -99,7 +100,7 @@ void ManagedCefBrowserAdapter::SetFocus(bool isFocused)
 
 bool ManagedCefBrowserAdapter::SendKeyEvent(int message, int wParam, int lParam)
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser->GetHost() == nullptr)
     {
@@ -231,7 +232,7 @@ void ManagedCefBrowserAdapter::CreateBrowser(BrowserSettings^ browserSettings, I
 
 void ManagedCefBrowserAdapter::Resize(int width, int height)
 {
-    HWND browserHwnd = _clientAdapter->GetBrowserHwnd();
+    HWND browserHwnd = GetBrowserHwnd();
     if (browserHwnd)
     {
         if (width == 0 && height == 0)
@@ -249,7 +250,7 @@ void ManagedCefBrowserAdapter::Resize(int width, int height)
 
 void ManagedCefBrowserAdapter::NotifyMoveOrResizeStarted()
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -259,7 +260,7 @@ void ManagedCefBrowserAdapter::NotifyMoveOrResizeStarted()
 
 void ManagedCefBrowserAdapter::NotifyScreenInfoChanged()
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -288,7 +289,7 @@ CefMouseEvent ManagedCefBrowserAdapter::GetCefMouseEvent(MouseEvent^ mouseEvent)
 
 void ManagedCefBrowserAdapter::OnDragTargetDragEnter(CefDragDataWrapper^ dragData, MouseEvent^ mouseEvent, DragOperationsMask allowedOperations)
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -299,7 +300,7 @@ void ManagedCefBrowserAdapter::OnDragTargetDragEnter(CefDragDataWrapper^ dragDat
 
 void ManagedCefBrowserAdapter::OnDragTargetDragOver(MouseEvent^ mouseEvent, DragOperationsMask allowedOperations)
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -309,7 +310,7 @@ void ManagedCefBrowserAdapter::OnDragTargetDragOver(MouseEvent^ mouseEvent, Drag
 
 void ManagedCefBrowserAdapter::OnDragTargetDragLeave()
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -319,7 +320,7 @@ void ManagedCefBrowserAdapter::OnDragTargetDragLeave()
 
 void ManagedCefBrowserAdapter::OnDragTargetDragDrop(MouseEvent^ mouseEvent)
 {
-    auto browser = _clientAdapter->GetCefBrowser();
+    auto browser = GetCefBrowser();
 
     if (browser != nullptr)
     {
@@ -339,4 +340,20 @@ IBrowser^ ManagedCefBrowserAdapter::GetBrowser()
 IJavascriptCallbackFactory^ ManagedCefBrowserAdapter::JavascriptCallbackFactory::get()
 {
     return _javascriptCallbackFactory;
+}
+
+CefRefPtr<CefBrowser> ManagedCefBrowserAdapter::GetCefBrowser()
+{
+    return _clientAdapter->GetCefBrowser(browserId);
+}
+
+HWND ManagedCefBrowserAdapter::GetBrowserHwnd()
+{
+    HWND result = NULL;
+    if (_browserWrapper != nullptr)
+    {
+        auto cefSharpBrowserWrapper = static_cast<CefSharpBrowserWrapper^>(_browserWrapper);
+        result = cefSharpBrowserWrapper->Browser->GetHost()->GetWindowHandle();
+    }
+    return result;
 }

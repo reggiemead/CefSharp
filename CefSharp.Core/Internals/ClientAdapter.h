@@ -6,11 +6,13 @@
 
 #include "Stdafx.h"
 #include <list>
+#include <functional>
 #include "include/cef_app.h"
 #include "include/cef_client.h"
 #include "include/cef_render_process_handler.h"
 #include "include/internal/cef_types.h"
 
+using namespace std;
 using namespace System;
 
 namespace CefSharp
@@ -32,13 +34,15 @@ namespace CefSharp
             public CefDownloadHandler
         {
         private:
-            gcroot<IWebBrowserInternal^> _browserControl;
-            HWND _browserHwnd;
-            CefRefPtr<CefBrowser> _cefBrowser;
+            int _mainBrowserId;
+            gcroot<IWebBrowserInternal^> _mainBrowser;
+            gcroot<IBrowserAdapter^> _mainBrowserAdapter;
 
-            gcroot<Dictionary<int, IBrowser^>^> _popupBrowsers;
+            //store native cefbrowsers separately
+            std::map<int, CefRefPtr<CefBrowser>> _nativeBrowsers;
+            //store the Browser, the BrowserAdapter, the BrowserControl and the BrowserHwnd for each browser instance
+            gcroot<Dictionary<int, Tuple<IBrowser^, IBrowserAdapter^, IWebBrowserInternal^, IntPtr>^>^> _browsers;
             gcroot<String^> _tooltip;
-            gcroot<IBrowserAdapter^> _browserAdapter;
             //contains in-progress eval script tasks
             gcroot<PendingTaskRepository<JavascriptResponse^>^> _pendingTaskRepository;
             //contains js callback factories for each browser
@@ -50,14 +54,18 @@ namespace CefSharp
             }
 
             IBrowser^ GetBrowserWrapper(int browserId, bool isPopup);
-
+            Tuple<IBrowser^, IBrowserAdapter^, IWebBrowserInternal^, IntPtr>^ GetMainBrowserData()
+            {
+                return static_cast<Dictionary<int, Tuple<IBrowser^, IBrowserAdapter^, IWebBrowserInternal^, IntPtr>^>^>(_browsers)[_mainBrowserId];
+            };
+            
         public:
             ClientAdapter(IWebBrowserInternal^ browserControl, IBrowserAdapter^ browserAdapter) :
-                _browserControl(browserControl), 
-                _popupBrowsers(gcnew Dictionary<int, IBrowser^>()),
+                _mainBrowser(browserControl),
+                _mainBrowserAdapter(browserAdapter),
                 _pendingTaskRepository(gcnew PendingTaskRepository<JavascriptResponse^>()),
                 _javascriptCallbackFactories(gcnew Dictionary<int, IJavascriptCallbackFactory^>()),
-                _browserAdapter(browserAdapter)
+                _browsers(gcnew Dictionary<int, Tuple<IBrowser^, IBrowserAdapter^, IWebBrowserInternal^, IntPtr>^>())
             {
                 
             }
@@ -69,16 +77,14 @@ namespace CefSharp
                 //this will dispose the repository and cancel all pending tasks
                 delete _pendingTaskRepository;
 
-                _browserControl = nullptr;
-                _browserHwnd = nullptr;
-                _cefBrowser = NULL;
+                _browsers->Clear();
+                _mainBrowser = nullptr;
+                _mainBrowserAdapter = nullptr;
                 _tooltip = nullptr;
-                _browserAdapter = nullptr;
-                _popupBrowsers = nullptr;
             }
 
-            HWND GetBrowserHwnd() { return _browserHwnd; }
-            CefRefPtr<CefBrowser> GetCefBrowser() { return _cefBrowser; }
+            HWND GetBrowserHwnd(int browserId);
+            CefRefPtr<CefBrowser> GetCefBrowser(int browserId);
             IWebBrowserInternal^ GetWebBrowser(int browserId);
             PendingTaskRepository<JavascriptResponse^>^ GetPendingTaskRepository();
             void CloseAllPopups(bool forceClose);

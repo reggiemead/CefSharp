@@ -35,6 +35,7 @@ namespace CefSharp
         JavascriptCallbackFactory^ _javascriptCallbackFactory;
         IBrowser^ _browserWrapper;
         bool _isDisposed;
+        int browserId;
 
     private:
         // Private keyboard functions:
@@ -46,6 +47,8 @@ namespace CefSharp
         // Misc. private functions:
         int GetCefKeyboardModifiers(WPARAM wparam, LPARAM lparam);
         CefMouseEvent GetCefMouseEvent(MouseEvent^ mouseEvent);
+        CefRefPtr<CefBrowser> GetCefBrowser();
+        HWND GetBrowserHwnd();
 
     internal:
         //this creates a browser adapter around an existing browser instance

@@ -27,6 +27,7 @@ namespace CefSharp
             {
             }
 
+            //TODO: This constructor only used by SchemeHandlerFactory and these instances cannot be used to create a ManagedCefBrowserAdapter
             CefSharpBrowserWrapper::CefSharpBrowserWrapper(CefRefPtr<CefBrowser> &browser)
                 : CefSharpBrowserWrapper(browser, CefRefPtr<ClientAdapter>())
             {
