@@ -33,7 +33,6 @@ namespace CefSharp.WinForms
         public IDownloadHandler DownloadHandler { get; set; }
         public ILifeSpanHandler LifeSpanHandler { get; set; }
         public IPopupHandler PopupHandler { get; set; }
-        public IPopupBrowserHandler PopupBrowserHandler { get; set; }
         public IMenuHandler MenuHandler { get; set; }
 
         /// <summary>
