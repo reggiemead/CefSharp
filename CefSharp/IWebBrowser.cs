@@ -74,6 +74,8 @@ namespace CefSharp
         /// </summary>
         IPopupHandler PopupHandler { get; set; }
 
+        IPopupBrowserHandler PopupBrowserHandler { get; set; }
+
         /// <summary>
         /// Implement <see cref="ILifeSpanHandler"/> and assign to handle events related to popups.
         /// </summary>
