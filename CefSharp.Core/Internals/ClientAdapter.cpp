@@ -110,7 +110,8 @@ namespace CefSharp
                 auto handler = mainBrowser->PopupHandler;
                 if (handler != nullptr)
                 {
-                    handler->OnAfterCreated(mainBrowser, browserWrapper);
+                    IWebBrowser^ newWebBrowser;
+                    handler->OnAfterCreated(mainBrowser, browserWrapper, newWebBrowser);
                 }
             }
             else
