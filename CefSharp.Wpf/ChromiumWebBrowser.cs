@@ -23,12 +23,12 @@ namespace CefSharp.Wpf
     public class ChromiumWebBrowser : ContentControl, IRenderWebBrowser, IWpfWebBrowser
     {
         private readonly List<IDisposable> disposables = new List<IDisposable>();
-        private readonly ScaleTransform imageTransform;
+        private ScaleTransform imageTransform;
 
         private HwndSource source;
         private HwndSourceHook sourceHook;
         private DispatcherTimer tooltipTimer;
-        private readonly ToolTip toolTip;
+        private ToolTip toolTip;
         private ManagedCefBrowserAdapter managedCefBrowserAdapter;
         private bool ignoreUriChange;
         private bool browserCreated;
@@ -94,6 +94,17 @@ namespace CefSharp.Wpf
 
         public ChromiumWebBrowser()
         {
+            Initialize(new ManagedCefBrowserAdapter(this, true));
+        }
+
+        public ChromiumWebBrowser(IBrowser browser)
+        {
+            browserCreated = true;
+            Initialize(new ManagedCefBrowserAdapter(this, browser));
+        }
+
+        private void Initialize(ManagedCefBrowserAdapter managedCefBrowserAdapter)
+        {
             if (!Cef.IsInitialized && !Cef.Initialize())
             {
                 throw new InvalidOperationException("Cef::Initialize() failed");
@@ -144,7 +155,8 @@ namespace CefSharp.Wpf
             RedoCommand = new DelegateCommand(this.Redo);
 
             imageTransform = new ScaleTransform();
-            managedCefBrowserAdapter = new ManagedCefBrowserAdapter(this, true);
+
+            this.managedCefBrowserAdapter = managedCefBrowserAdapter;
 
             disposables.Add(managedCefBrowserAdapter);
             disposables.Add(new DisposableEventWrapper(this, ActualHeightProperty, OnActualSizeChanged));
@@ -399,6 +411,31 @@ namespace CefSharp.Wpf
                     Load(Address);
                 }
             });
+        }
+
+        void IWebBrowserInternal.SetBrowserAdapter(IBrowserAdapter browserAdapter)
+        {
+            if (!(browserAdapter is ManagedCefBrowserAdapter))
+            {
+                throw new ArgumentException("BrowserAdapter must be a ManagedCefBrowserAdapter", "browserAdapter");
+            }
+
+            browserCreated = true;
+            UiThreadRun(() =>
+            {
+                SetCurrentValue(IsBrowserInitializedProperty, false);
+            });
+            if (managedCefBrowserAdapter != null)
+            {
+                disposables.Remove(managedCefBrowserAdapter);
+                managedCefBrowserAdapter.Dispose();
+            }
+            managedCefBrowserAdapter = (ManagedCefBrowserAdapter)browserAdapter;
+        }
+
+        IntPtr IWebBrowserInternal.ParentHandle
+        {
+            get { return IntPtr.Zero; }
         }
 
         #region CanGoBack dependency property
@@ -880,6 +917,18 @@ namespace CefSharp.Wpf
             else if (!Dispatcher.HasShutdownStarted)
             {
                 Dispatcher.BeginInvoke(action, priority);
+            }
+        }
+
+        private void UiThreadRun(Action action, DispatcherPriority priority = DispatcherPriority.DataBind)
+        {
+            if (Dispatcher.CheckAccess())
+            {
+                action();
+            }
+            else if (!Dispatcher.HasShutdownStarted)
+            {
+                Dispatcher.Invoke(action, priority);
             }
         }
 

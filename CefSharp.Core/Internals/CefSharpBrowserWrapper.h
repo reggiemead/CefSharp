@@ -22,7 +22,7 @@ namespace CefSharp
             bool _disposed;
 
         internal:
-            CefSharpBrowserWrapper::CefSharpBrowserWrapper(CefRefPtr<CefBrowser> &browser, CefRefPtr<ClientAdapter> &cefClient)
+            CefSharpBrowserWrapper::CefSharpBrowserWrapper(CefRefPtr<CefBrowser> &browser, CefRefPtr<ClientAdapter> cefClient)
                 : _browser(browser), _disposed(false), _cefClient(cefClient)
             {
             }

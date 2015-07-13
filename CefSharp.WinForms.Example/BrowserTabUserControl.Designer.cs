@@ -49,6 +49,7 @@
             // 
             this.toolStrip2.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip2.ImageScalingSize = new System.Drawing.Size(20, 20);
             this.toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.findTextBox,
             this.findPreviousButton,
@@ -72,7 +73,7 @@
             this.findPreviousButton.Image = global::CefSharp.WinForms.Example.Properties.Resources.nav_left_green;
             this.findPreviousButton.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.findPreviousButton.Name = "findPreviousButton";
-            this.findPreviousButton.Size = new System.Drawing.Size(23, 22);
+            this.findPreviousButton.Size = new System.Drawing.Size(24, 22);
             this.findPreviousButton.Text = "Find Previous";
             this.findPreviousButton.Click += new System.EventHandler(this.FindPreviousButtonClick);
             // 
@@ -82,7 +83,7 @@
             this.findNextButton.Image = global::CefSharp.WinForms.Example.Properties.Resources.nav_right_green;
             this.findNextButton.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.findNextButton.Name = "findNextButton";
-            this.findNextButton.Size = new System.Drawing.Size(23, 22);
+            this.findNextButton.Size = new System.Drawing.Size(24, 22);
             this.findNextButton.Text = "Find Next";
             this.findNextButton.Click += new System.EventHandler(this.FindNextButtonClick);
             // 
@@ -101,23 +102,24 @@
             // 
             this.statusLabel.AutoSize = true;
             this.statusLabel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.statusLabel.Location = new System.Drawing.Point(0, 439);
+            this.statusLabel.Location = new System.Drawing.Point(0, 456);
             this.statusLabel.Name = "statusLabel";
-            this.statusLabel.Size = new System.Drawing.Size(0, 13);
+            this.statusLabel.Size = new System.Drawing.Size(0, 17);
             this.statusLabel.TabIndex = 1;
             // 
             // outputLabel
             // 
             this.outputLabel.AutoSize = true;
             this.outputLabel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.outputLabel.Location = new System.Drawing.Point(0, 452);
+            this.outputLabel.Location = new System.Drawing.Point(0, 473);
             this.outputLabel.Name = "outputLabel";
-            this.outputLabel.Size = new System.Drawing.Size(0, 13);
+            this.outputLabel.Size = new System.Drawing.Size(0, 17);
             this.outputLabel.TabIndex = 0;
             // 
             // toolStrip1
             // 
             this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
             this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.backButton,
             this.forwardButton,
@@ -126,7 +128,7 @@
             this.toolStrip1.Location = new System.Drawing.Point(0, 0);
             this.toolStrip1.Name = "toolStrip1";
             this.toolStrip1.Padding = new System.Windows.Forms.Padding(0);
-            this.toolStrip1.Size = new System.Drawing.Size(730, 25);
+            this.toolStrip1.Size = new System.Drawing.Size(730, 27);
             this.toolStrip1.Stretch = true;
             this.toolStrip1.TabIndex = 0;
             this.toolStrip1.Layout += new System.Windows.Forms.LayoutEventHandler(this.HandleToolStripLayout);
@@ -137,7 +139,7 @@
             this.backButton.Image = global::CefSharp.WinForms.Example.Properties.Resources.nav_left_green;
             this.backButton.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.backButton.Name = "backButton";
-            this.backButton.Size = new System.Drawing.Size(52, 22);
+            this.backButton.Size = new System.Drawing.Size(64, 24);
             this.backButton.Text = "Back";
             this.backButton.Click += new System.EventHandler(this.BackButtonClick);
             // 
@@ -147,7 +149,7 @@
             this.forwardButton.Image = global::CefSharp.WinForms.Example.Properties.Resources.nav_right_green;
             this.forwardButton.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.forwardButton.Name = "forwardButton";
-            this.forwardButton.Size = new System.Drawing.Size(70, 22);
+            this.forwardButton.Size = new System.Drawing.Size(87, 24);
             this.forwardButton.Text = "Forward";
             this.forwardButton.Click += new System.EventHandler(this.ForwardButtonClick);
             // 
@@ -163,16 +165,16 @@
             this.goButton.Image = global::CefSharp.WinForms.Example.Properties.Resources.nav_plain_green;
             this.goButton.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.goButton.Name = "goButton";
-            this.goButton.Size = new System.Drawing.Size(42, 22);
+            this.goButton.Size = new System.Drawing.Size(52, 24);
             this.goButton.Text = "Go";
             this.goButton.Click += new System.EventHandler(this.GoButtonClick);
             // 
             // browserPanel
             // 
             this.browserPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.browserPanel.Location = new System.Drawing.Point(0, 25);
+            this.browserPanel.Location = new System.Drawing.Point(0, 27);
             this.browserPanel.Name = "browserPanel";
-            this.browserPanel.Size = new System.Drawing.Size(730, 414);
+            this.browserPanel.Size = new System.Drawing.Size(730, 429);
             this.browserPanel.TabIndex = 2;
             // 
             // BrowserTabUserControl

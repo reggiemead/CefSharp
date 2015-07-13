@@ -2,6 +2,8 @@
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
+using System;
+
 namespace CefSharp.Internals
 {
     /// <summary>
@@ -10,7 +12,11 @@ namespace CefSharp.Internals
     /// </summary>
     public interface IWebBrowserInternal : IWebBrowser
     {
+        IntPtr ParentHandle { get; }
+
         void OnAfterBrowserCreated();
+
+        void SetBrowserAdapter(IBrowserAdapter browserAdapter);
 
         void SetAddress(string address);
         void SetLoadingStateChange(bool canGoBack, bool canGoForward, bool isLoading);

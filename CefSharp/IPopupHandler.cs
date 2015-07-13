@@ -19,8 +19,7 @@ namespace CefSharp
         /// </summary>
         /// <param name="browserControl">The IWebBrowser control this popup is related to.</param>
         /// <param name="browser">The popup window instance that was just created.</param>
-        /// <param name="newWebBrowser">An optional new web browser instance to be used as a visual representation of the newly created popup.</param>
-        void OnAfterCreated(IWebBrowser browserControl, IBrowser browser, ref IWebBrowser newWebBrowser);
+        void OnAfterCreated(IWebBrowser browserControl, IBrowser browser, IWebBrowser webBrowser);
 
         void OnFaviconUrlChange(IWebBrowser browserControl, IBrowser browser, List<string> iconUrls);
 

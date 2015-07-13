@@ -87,7 +87,7 @@ namespace CefSharp
 
         !ManagedCefBrowserAdapter()
         {
-            _clientAdapter = nullptr;
+            //_clientAdapter = nullptr;
         }
 
         ~ManagedCefBrowserAdapter()
@@ -95,12 +95,15 @@ namespace CefSharp
             // Release the MCefRefPtr<ClientAdapter> reference
             // before calling _browserWrapper->CloseBrowser(true)
             this->!ManagedCefBrowserAdapter();
-            _browserWrapper->CloseBrowser(true);
+            if (_browserWrapper != nullptr)
+            {
+                _browserWrapper->CloseBrowser(true);
 
-            delete _browserWrapper;
-            _browserWrapper = nullptr;
+                delete _browserWrapper;
+                _browserWrapper = nullptr;
+            }
 
-            if (CefSharpSettings::WcfEnabled)
+            if (CefSharpSettings::WcfEnabled && _browserProcessServiceHost != nullptr)
             {
                 _browserProcessServiceHost->Close();
                 _browserProcessServiceHost = nullptr;

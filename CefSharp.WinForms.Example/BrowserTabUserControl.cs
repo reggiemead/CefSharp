@@ -28,6 +28,8 @@ namespace CefSharp.WinForms.Example
             browser.GeolocationHandler = new GeolocationHandler();
             browser.DownloadHandler = new DownloadHandler();
             browser.KeyboardHandler = new KeyboardHandler();
+            browser.LifeSpanHandler = new LifespanHandler();
+            browser.PopupHandler = new PopupHandler();
             //browser.FocusHandler = new FocusHandler(browser, urlTextBox);
             browser.LoadingStateChanged += OnBrowserLoadingStateChanged;
             browser.ConsoleMessage += OnBrowserConsoleMessage;

@@ -79,6 +79,7 @@
     </Compile>
     <Compile Include="GeolocationHandler.cs" />
     <Compile Include="KeyboardHandler.cs" />
+    <Compile Include="LifespanHandler.cs" />
     <Compile Include="MenuHandler.cs" />
     <Compile Include="Minimal\SimpleBrowserForm.cs">
       <SubType>Form</SubType>
@@ -92,6 +93,7 @@
     <Compile Include="Minimal\TabulationDemoForm.Designer.cs">
       <DependentUpon>TabulationDemoForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="PopupHandler.cs" />
     <Compile Include="Program.cs">
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />

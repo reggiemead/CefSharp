@@ -68,71 +68,130 @@ namespace CefSharp
             const CefString& target_frame_name, const CefPopupFeatures& popupFeatures, CefWindowInfo& windowInfo,
             CefRefPtr<CefClient>& client, CefBrowserSettings& settings, bool* no_javascript_access)
         {
+            auto result = false;
             //TODO: might always use the main browser
             auto webBrowser = GetWebBrowser(browser->GetIdentifier());
             auto handler = InternalWebBrowserExtensions::GetLifeSpanHandler(webBrowser);
+            IWebBrowserInternal^ pendingPopup = nullptr;
 
-            if (handler == nullptr)
+            if (handler != nullptr)
             {
-                return false;
+                bool createdWrapper = false;
+                IBrowser^ browserWrapper = GetBrowserWrapper(browser->GetIdentifier(), browser->IsPopup());
+
+                CefFrameWrapper frameWrapper(frame);
+                CefWindowInfoWrapper windowInfoWrapper(&windowInfo);
+
+                IWebBrowser^ newWebBrowser;
+                result = handler->OnBeforePopup(
+                    webBrowser, browserWrapper,
+                    %frameWrapper, StringUtils::ToClr(target_url),
+                    StringUtils::ToClr(target_frame_name),
+                    %windowInfoWrapper, *no_javascript_access, newWebBrowser);
+
+                auto webBrowserInternal = dynamic_cast<IWebBrowserInternal^>(newWebBrowser);
+                if (!result && webBrowserInternal != nullptr)
+                {
+                    auto mainBrowserData = _nativeBrowsers[_mainBrowserId];
+                    auto windowlessSupported = mainBrowserData->GetHost()->IsWindowRenderingDisabled();
+
+                    auto browserParentHandle = (HWND)webBrowserInternal->ParentHandle.ToPointer();
+                    auto isBrowserOffscreen = IRenderWebBrowser::typeid->IsAssignableFrom(webBrowserInternal->GetType());
+                    //let's override windowinfo if it wasn't setup properly
+                    if (isBrowserOffscreen && windowlessSupported && !windowInfo.windowless_rendering_enabled)
+                    {
+                        //make sure we have an offscreen browser for wpf
+                        windowInfo.SetAsWindowless(NULL, true);
+                    }
+                    else if (!isBrowserOffscreen && windowInfo.parent_window != browserParentHandle)
+                    {
+                        //make sure the hwnd is properly set up
+                        RECT rect;
+                        GetClientRect(browserParentHandle, &rect);
+                        rect.right = 100;
+                        rect.bottom = 100;
+                        windowInfo.SetAsChild(browserParentHandle, rect);
+                    }
+
+                    auto browserValid = (isBrowserOffscreen && windowlessSupported) || !isBrowserOffscreen;
+                    if (browserValid)
+                    {
+                        pendingPopup = webBrowserInternal;
+                    }
+                }
             }
-            
-            bool createdWrapper = false;
-            IBrowser^ browserWrapper = GetBrowserWrapper(browser->GetIdentifier(), browser->IsPopup());
 
-            CefFrameWrapper frameWrapper(frame);
-            CefWindowInfoWrapper windowInfoWrapper(&windowInfo);
+            //OnBeforePopup is always called on the IO thread so we can do this
+            _pendingPopups->Enqueue(pendingPopup);
 
-            auto result = handler->OnBeforePopup(
-                webBrowser, browserWrapper,
-                %frameWrapper, StringUtils::ToClr(target_url),
-                StringUtils::ToClr(target_frame_name),
-                %windowInfoWrapper, *no_javascript_access);
             return result;
         }
 
         void ClientAdapter::OnAfterCreated(CefRefPtr<CefBrowser> browser)
         {
+            //save this here because we need GetCefBrowser to provide meaningful values while dealing with browser adapters
             _nativeBrowsers.emplace(browser->GetIdentifier(), browser);
-
             auto browsers = static_cast<Dictionary<int, Tuple<IBrowser^, IBrowserAdapter^, IWebBrowserInternal^, IntPtr>^>^>(_browsers);
+
             Tuple<IBrowser^, IBrowserAdapter^, IWebBrowserInternal^, IntPtr>^ browserData = nullptr;
             if (browser->IsPopup())
             {
+                auto webBrowserInternal = _pendingPopups->Dequeue();
                 auto browserWrapper = gcnew CefSharpBrowserWrapper(browser, CefRefPtr<ClientAdapter>(this));
                 auto mainBrowserData = GetMainBrowserData();
                 auto mainBrowser = mainBrowserData->Item3;
-                browserData = Tuple::Create(static_cast<IBrowser^>(browserWrapper), 
-                    (IBrowserAdapter^)nullptr, 
-                    (IWebBrowserInternal^)nullptr, 
-                    IntPtr(browser->GetHost()->GetWindowHandle()));
+                IBrowserAdapter^ browserAdapter = nullptr;
+
+                if (webBrowserInternal != nullptr)
+                {
+                    webBrowserInternal->SetBrowserAdapter(nullptr);
+                    browserAdapter = gcnew ManagedCefBrowserAdapter(webBrowserInternal, browserWrapper);
+                    //reassign the browser adapter of the newly created webbrowser
+                    webBrowserInternal->SetBrowserAdapter(browserAdapter);
+                    browserAdapter->OnAfterBrowserCreated(browser->GetIdentifier());
+                    browser->GetHost()->NotifyMoveOrResizeStarted();
+                    _javascriptCallbackFactories->Add(browser->GetIdentifier(), browserAdapter->JavascriptCallbackFactory);
+                }
 
                 auto handler = mainBrowser->PopupHandler;
                 if (handler != nullptr)
                 {
-                    IWebBrowser^ newWebBrowser;
-                    handler->OnAfterCreated(mainBrowser, browserWrapper, newWebBrowser);
+                    handler->OnAfterCreated(mainBrowser, browserWrapper, webBrowserInternal);
                 }
+
+                browserData = Tuple::Create(static_cast<IBrowser^>(browserWrapper),
+                    browserAdapter,
+                    webBrowserInternal,
+                    IntPtr(browser->GetHost()->GetWindowHandle()));
             }
-            else
+            else if (!Object::ReferenceEquals(_mainBrowserAdapter, nullptr))
             {
+                _mainBrowserId = browser->GetIdentifier();
                 auto browserHwnd = IntPtr(browser->GetHost()->GetWindowHandle());
-                
-                if (!Object::ReferenceEquals(_mainBrowserAdapter, nullptr))
+
+                if (!_mainBrowserAdapter->IsDisposed)
                 {
                     _mainBrowserAdapter->OnAfterBrowserCreated(browser->GetIdentifier());
                     //save callback factory for this browser
                     //it's only going to be present after browseradapter is initialized
+
+
+                    browserData = Tuple::Create(_mainBrowserAdapter->GetBrowser(),
+                        static_cast<IBrowserAdapter^>(_mainBrowserAdapter),
+                        static_cast<IWebBrowserInternal^>(_mainBrowser),
+                        IntPtr(browser->GetHost()->GetWindowHandle()));
                     _javascriptCallbackFactories->Add(browser->GetIdentifier(), _mainBrowserAdapter->JavascriptCallbackFactory);
                 }
-
-                browserData = Tuple::Create(_mainBrowserAdapter->GetBrowser(),
-                    static_cast<IBrowserAdapter^>(_mainBrowserAdapter),
-                    static_cast<IWebBrowserInternal^>(_mainBrowser),
-                    IntPtr(browser->GetHost()->GetWindowHandle()));
+                else
+                {
+                    browser->GetHost()->CloseBrowser(true);
+                }
             }
 
-            browsers[browser->GetIdentifier()] = browserData;
+            if (browserData != nullptr)
+            {
+                browsers[browser->GetIdentifier()] = browserData;
+            }
         }
 
         void ClientAdapter::OnBeforeClose(CefRefPtr<CefBrowser> browser)
@@ -140,7 +199,6 @@ namespace CefSharp
             auto webBrowser = GetWebBrowser(browser->GetIdentifier());
             if (browser->IsPopup())
             {
-                // Remove from the browser popup list.
                 IBrowser^ browserWrapper = GetBrowserWrapper(browser->GetIdentifier(), true);
                 auto mainBrowserData = GetMainBrowserData();
                 auto handler = mainBrowserData->Item3->PopupHandler;
@@ -149,7 +207,8 @@ namespace CefSharp
                     handler->OnBeforeClose(mainBrowserData->Item3, browserWrapper);
                 }
             }
-            else if (GetBrowserHwnd(browser->GetIdentifier()) == browser->GetHost()->GetWindowHandle())
+            
+            if (webBrowser != nullptr && GetBrowserHwnd(browser->GetIdentifier()) == browser->GetHost()->GetWindowHandle())
             {
                 auto handler = webBrowser->LifeSpanHandler;
                 if (handler != nullptr)
@@ -949,10 +1008,6 @@ namespace CefSharp
             {
                 result = static_cast<HWND>(browserData->Item4.ToPointer());
             }
-            else
-            {
-                ThrowUnknownPopupBrowser("GetBrowserHwnd");
-            }
             return result;
         }
 
@@ -973,10 +1028,6 @@ namespace CefSharp
             if (_browsers->TryGetValue(browserId, browserData))
             {
                 result = browserData->Item3;
-            }
-            else
-            {
-                ThrowUnknownPopupBrowser("GetWebBrowser");
             }
             return result;
         }

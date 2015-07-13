@@ -35,11 +35,12 @@ namespace CefSharp
             {
                 ClientAdapter::OnAfterCreated(browser);
 
-                if (!browser->IsPopup())
+                auto webBrowser = GetWebBrowser(browser->GetIdentifier());
+                if (webBrowser != nullptr)
                 {
                     _renderDelegates->Add(browser->GetIdentifier(), 
                         gcnew CefSharpRenderDelegate(
-                            static_cast<IRenderWebBrowser^>(GetWebBrowser(browser->GetIdentifier()))));
+                            static_cast<IRenderWebBrowser^>(webBrowser)));
                 }
             }
 

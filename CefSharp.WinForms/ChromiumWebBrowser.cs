@@ -13,6 +13,7 @@ namespace CefSharp.WinForms
     {
         private ManagedCefBrowserAdapter managedCefBrowserAdapter;
         private ParentFormMessageInterceptor parentFormMessageInterceptor;
+        private Panel panel = new Panel();
 
         /// <summary>
         /// Set to true while handing an activating WM_ACTIVATE message.
@@ -273,6 +274,26 @@ namespace CefSharp.WinForms
             {
                 handler(this, new LoadErrorEventArgs(frame, errorCode, errorText, failedUrl));
             }
+        }
+
+        void IWebBrowserInternal.SetBrowserAdapter(IBrowserAdapter browserAdapter)
+        {
+            if (browserAdapter != null && !(browserAdapter is ManagedCefBrowserAdapter))
+            {
+                throw new ArgumentException("BrowserAdapter must be a ManagedCefBrowserAdapter", "browserAdapter");
+            }
+
+            IsBrowserInitialized = false;
+            if (managedCefBrowserAdapter != null)
+            {
+                managedCefBrowserAdapter.Dispose();
+            }
+            managedCefBrowserAdapter = (ManagedCefBrowserAdapter)browserAdapter;
+        }
+
+        IntPtr IWebBrowserInternal.ParentHandle
+        {
+            get { return Handle; }
         }
 
         /// <summary>

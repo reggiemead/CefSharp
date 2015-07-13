@@ -33,7 +33,7 @@ namespace CefSharp
         /// the new browser window should be scriptable and in the same process as the
         /// source browser.
         /// </remarks>
-        bool OnBeforePopup(IWebBrowser browserControl, IBrowser browser, IFrame frame, string targetUrl, string targetFrameName, IWindowInfo windowInfo, ref bool noJavascriptAccess);
+        bool OnBeforePopup(IWebBrowser browserControl, IBrowser browser, IFrame frame, string targetUrl, string targetFrameName, IWindowInfo windowInfo, ref bool noJavascriptAccess, out IWebBrowser newWebBrowser);
 
         /// <summary>
         /// Called before a CefBrowser window (either the main browser for <see cref="IWebBrowser"/>, 

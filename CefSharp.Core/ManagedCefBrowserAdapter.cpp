@@ -19,7 +19,7 @@ void ManagedCefBrowserAdapter::CreateOffscreenBrowser(IntPtr windowHandle, Brows
     auto transparent = browserSettings->OffScreenTransparentBackground.GetValueOrDefault(true);
     window.SetAsWindowless(hwnd, transparent);
     CefString addressNative = StringUtils::ToNative(address);
-
+    
     if (!CefBrowserHost::CreateBrowser(window, _clientAdapter.get(), addressNative,
         *browserSettings->_browserSettings, NULL))
     {
@@ -30,12 +30,16 @@ void ManagedCefBrowserAdapter::CreateOffscreenBrowser(IntPtr windowHandle, Brows
 void ManagedCefBrowserAdapter::OnAfterBrowserCreated(int browserId)
 {
     this->browserId = browserId;
+    if (!_clientAdapter.get())
+    {
+        System::Console::Write("");
+    }
     //browser wrapper instance has to be set up for the BrowserProcessServiceHost
-    auto browser = GetCefBrowser();
+    auto browser = _clientAdapter->GetCefBrowser(browserId);
     if (browser != nullptr)
     {
         //the js callback factory needs the browser instance to pass it to the js callback implementations for messaging purposes
-        auto cefSharpBrowserWrapper = gcnew CefSharpBrowserWrapper(browser);
+        auto cefSharpBrowserWrapper = gcnew CefSharpBrowserWrapper(browser, CefRefPtr<ClientAdapter>(_clientAdapter.get()));
         _browserWrapper = cefSharpBrowserWrapper;
         _javascriptCallbackFactory->BrowserWrapper = gcnew WeakReference(cefSharpBrowserWrapper);
     }
@@ -344,6 +348,10 @@ IJavascriptCallbackFactory^ ManagedCefBrowserAdapter::JavascriptCallbackFactory:
 
 CefRefPtr<CefBrowser> ManagedCefBrowserAdapter::GetCefBrowser()
 {
+    if (!_clientAdapter.get())
+    {
+        System::Console::Write("");
+    }
     return _clientAdapter->GetCefBrowser(browserId);
 }
 

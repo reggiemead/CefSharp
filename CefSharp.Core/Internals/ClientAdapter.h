@@ -34,6 +34,9 @@ namespace CefSharp
             public CefDownloadHandler
         {
         private:
+            gcroot<Queue<IWebBrowserInternal^>^> _pendingPopups;
+
+
             int _mainBrowserId;
             gcroot<IWebBrowserInternal^> _mainBrowser;
             gcroot<IBrowserAdapter^> _mainBrowserAdapter;
@@ -61,8 +64,10 @@ namespace CefSharp
             
         public:
             ClientAdapter(IWebBrowserInternal^ browserControl, IBrowserAdapter^ browserAdapter) :
+                _mainBrowserId(0),
                 _mainBrowser(browserControl),
                 _mainBrowserAdapter(browserAdapter),
+                _pendingPopups(gcnew Queue<IWebBrowserInternal^>()),
                 _pendingTaskRepository(gcnew PendingTaskRepository<JavascriptResponse^>()),
                 _javascriptCallbackFactories(gcnew Dictionary<int, IJavascriptCallbackFactory^>()),
                 _browsers(gcnew Dictionary<int, Tuple<IBrowser^, IBrowserAdapter^, IWebBrowserInternal^, IntPtr>^>())
@@ -88,6 +93,11 @@ namespace CefSharp
             IWebBrowserInternal^ GetWebBrowser(int browserId);
             PendingTaskRepository<JavascriptResponse^>^ GetPendingTaskRepository();
             void CloseAllPopups(bool forceClose);
+
+            void EnqueuePopup()
+            {
+                _pendingPopups->Enqueue(nullptr);
+            }
 
             // CefClient
             virtual DECL CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() OVERRIDE { return this; }

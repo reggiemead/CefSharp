@@ -46,7 +46,12 @@ void CefBrowserHostWrapper::ShowDevTools()
     CefWindowInfo windowInfo;
     CefBrowserSettings settings;
 
-    windowInfo.SetAsPopup(_browserHost->GetWindowHandle(), "DevTools");
+    windowInfo.SetAsPopup(NULL, "DevTools");
+
+
+    auto cefClient = _browserHost->GetClient();
+    auto clientAdapter = dynamic_cast<ClientAdapter*>(cefClient.get());
+    clientAdapter->EnqueuePopup();
 
     _browserHost->ShowDevTools(windowInfo, _browserHost->GetClient(), settings, CefPoint());
 }

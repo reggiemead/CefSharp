@@ -7,7 +7,7 @@ namespace CefSharp.Example
 {
     public static class CefExample
     {
-        public const string DefaultUrl = "custom://cefsharp/home.html";
+        public const string DefaultUrl = "http://www.google.hu";
         public const string BindingTestUrl = "custom://cefsharp/BindingTest.html";
         public const string TestResourceUrl = "http://test/resource/load";
         public const string TestUnicodeResourceUrl = "http://test/resource/loadUnicode";
