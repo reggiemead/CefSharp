@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -15,19 +15,24 @@ namespace CefSharp
         public CefBrowserProcessHandler
     {
         gcroot<CefSettings^> _cefSettings;
-        gcroot<Action^> _onContextInitialized;
+        gcroot<IBrowserProcessHandler^> _browserProcessHandler;
 
     public:
-        CefSharpApp(CefSettings^ cefSettings, Action^ onContextInitialized) :
+        CefSharpApp(CefSettings^ cefSettings, IBrowserProcessHandler^ browserProcessHandler) :
             _cefSettings(cefSettings),
-            _onContextInitialized(onContextInitialized)
+            _browserProcessHandler(browserProcessHandler)
         {
+            if (cefSettings->ExternalMessagePump && Object::ReferenceEquals(_browserProcessHandler, nullptr))
+            {
+                throw gcnew Exception("browserProcessHandler cannot be null when using cefSettings.ExternalMessagePump");
+            }
         }
 
         ~CefSharpApp()
         {
             _cefSettings = nullptr;
-            _onContextInitialized = nullptr;
+            delete _browserProcessHandler;
+            _browserProcessHandler = nullptr;
         }
 
         virtual CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() OVERRIDE
@@ -37,10 +42,15 @@ namespace CefSharp
 
         virtual void OnContextInitialized() OVERRIDE
         {
-            if (!Object::ReferenceEquals(_onContextInitialized, nullptr))
+            if (!Object::ReferenceEquals(_browserProcessHandler, nullptr))
             {
-                _onContextInitialized->Invoke();
+                _browserProcessHandler->OnContextInitialized();
             }
+        }
+
+        virtual void OnScheduleMessagePumpWork(int64 delay_ms)  OVERRIDE
+        {
+            _browserProcessHandler->OnScheduleMessagePumpWork(delay_ms);
         }
 
         virtual void OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> commandLine) OVERRIDE
@@ -48,6 +58,9 @@ namespace CefSharp
             if (CefSharpSettings::WcfEnabled)
             {
                 commandLine->AppendArgument(StringUtils::ToNative(CefSharpArguments::WcfEnabledArgument));
+                //ChannelId was removed in https://bitbucket.org/chromiumembedded/cef/issues/1912/notreached-in-logchannelidandcookiestores
+                //We need to know the process Id to establish WCF communication
+                commandLine->AppendArgument(StringUtils::ToNative(CefSharpArguments::WcfHostProcessIdArgument + "=" + Process::GetCurrentProcess()->Id));
             }
 
             if (_cefSettings->_cefCustomSchemes->Count > 0)
@@ -59,7 +72,9 @@ namespace CefSharp
                     argument += scheme->SchemeName + "|";
                     argument += (scheme->IsStandard ? "T" : "F") + "|";
                     argument += (scheme->IsLocal ? "T" : "F") + "|";
-                    argument += (scheme->IsDisplayIsolated ? "T" : "F") + ";";
+                    argument += (scheme->IsDisplayIsolated ? "T" : "F") + "|";
+                    argument += (scheme->IsSecure ? "T" : "F") + "|";
+                    argument += (scheme->IsCorsEnabled ? "T" : "F") + ";";
                 }
 
                 argument = argument->TrimEnd(';');
@@ -98,12 +113,17 @@ namespace CefSharp
             }
         }
 
-        virtual void OnRegisterCustomSchemes(CefRefPtr<CefSchemeRegistrar> registrar) OVERRIDE
+        virtual void OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar) OVERRIDE
         {
-            for each (CefCustomScheme^ cefCustomScheme in _cefSettings->CefCustomSchemes)
+            for each (CefCustomScheme^ scheme in _cefSettings->CefCustomSchemes)
             {
-                // TOOD: Consider adding error handling here. But where do we report any errors that may have occurred?
-                registrar->AddCustomScheme(StringUtils::ToNative(cefCustomScheme->SchemeName), cefCustomScheme->IsStandard, cefCustomScheme->IsLocal, cefCustomScheme->IsDisplayIsolated);
+                auto success = registrar->AddCustomScheme(StringUtils::ToNative(scheme->SchemeName), scheme->IsStandard, scheme->IsLocal, scheme->IsDisplayIsolated, scheme->IsSecure, scheme->IsCorsEnabled, false);
+
+                if (!success)
+                {
+                    String^ msg = "CefSchemeRegistrar::AddCustomScheme failed for schemeName:" + scheme->SchemeName;
+                    LOG(ERROR) << StringUtils::ToNative(msg).ToString();
+                }
             }
         };
 

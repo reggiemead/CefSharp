@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -129,8 +129,12 @@ namespace CefSharp
                 if (exception.get())
                 {
                     std::wstringstream logMessageBuilder;
-                    logMessageBuilder << exception->GetMessage().c_str() << L"\n@ " <<
-                        exception->GetScriptResourceName().c_str() << L":" << exception->GetLineNumber() << L":" << exception->GetStartColumn();
+                    logMessageBuilder << exception->GetMessage().c_str() << L"\n@ ";
+                    if (!exception->GetScriptResourceName().empty())
+                    {
+                        logMessageBuilder << exception->GetScriptResourceName().c_str();
+                    }
+                    logMessageBuilder << L":" << exception->GetLineNumber() << L":" << exception->GetStartColumn();
                     return CefString(logMessageBuilder.str());
                 }
                 

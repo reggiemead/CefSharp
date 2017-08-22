@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -20,6 +20,11 @@ namespace CefSharp.Example
             const string script = "document.addEventListener('DOMContentLoaded', function(){ alert('DomLoaded'); });";
 
             //frame.ExecuteJavaScriptAsync(script);
+        }
+
+        void IRenderProcessMessageHandler.OnContextReleased(IWebBrowser browserControl, IBrowser browser, IFrame frame)
+        {
+            //The V8Context is about to be released, use this notification to cancel any long running tasks your might have
         }
     }
 }

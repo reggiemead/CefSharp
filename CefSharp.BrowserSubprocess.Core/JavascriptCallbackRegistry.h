@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -15,8 +15,11 @@ namespace CefSharp
         private ref class JavascriptCallbackRegistry
         {
         private:
+            //Only access through Interlocked::Increment - used to generate unique callback Id's
+            //Is static so ids are unique to this process, which is required until #1984 is implemented
+            //and callbacks are disposed of properly between contexts
+            static Int64 _lastId;
             int _browserId;
-            Int64 _lastId;
             ConcurrentDictionary<Int64, JavascriptCallbackWrapper^>^ _callbacks;
 
         internal:

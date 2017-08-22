@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -94,6 +94,16 @@ namespace CefSharp
             };
 
             ///
+            // Called to retrieve the translation from view coordinates to actual screen
+            // coordinates. Return true if the screen coordinates were provided.
+            ///
+            /*--cef()--*/
+            virtual DECL bool GetScreenPoint(CefRefPtr<CefBrowser> browser, int viewX, int viewY, int& screenX, int& screenY) OVERRIDE
+            {
+                return _renderWebBrowser->GetScreenPoint(viewX, viewY, screenX, screenY);
+            }
+
+            ///
             // Called when the browser wants to show or hide the popup widget. The popup
             // should be shown if |show| is true and hidden if |show| is false.
             ///
@@ -122,7 +132,7 @@ namespace CefSharp
 
                 if(bitmapInfo->DirtyRectSupport)
                 {
-                    //NOTE: According to https://bitbucket.org/chromiumembedded/branches-2171-cef3/commits/ce984ddff3268a50cf9967487327e1257015b98c
+                    //NOTE: According to https://bitbucket.org/chromiumembedded/cef/commits/1ddb0ba41d7052eaad50b8d9de959f3b5e05ff21?at=master
                     // There is only one rect now that's a union of all dirty regions. API Still passes in a vector
 
                     CefRect r = dirtyRects.front();
@@ -169,13 +179,13 @@ namespace CefSharp
 
                 CopyMemory(backBufferHandle, (void*)buffer, bitmapInfo->NumberOfBytes);
 
-                _renderWebBrowser->InvokeRenderAsync(bitmapInfo);
+                _renderWebBrowser->OnPaint(bitmapInfo);
             };
 
             virtual DECL void OnCursorChange(CefRefPtr<CefBrowser> browser, CefCursorHandle cursor, CursorType type,
                 const CefCursorInfo& custom_cursor_info) OVERRIDE
             {
-                _renderWebBrowser->SetCursor((IntPtr)cursor, (CefSharp::CefCursorType)type);
+                _renderWebBrowser->SetCursor((IntPtr)cursor, (CefSharp::CursorType)type);
             };
 
             virtual DECL bool StartDragging(CefRefPtr<CefBrowser> browser, CefRefPtr<CefDragData> dragData,
@@ -183,6 +193,36 @@ namespace CefSharp
             {
                 CefDragDataWrapper dragDataWrapper(dragData);
                 return _renderWebBrowser->StartDragging(%dragDataWrapper, (CefSharp::DragOperationsMask)allowedOps, x, y);
+            }
+
+            ///
+            // Called when the web view wants to update the mouse cursor during a
+            // drag & drop operation. |operation| describes the allowed operation
+            // (none, move, copy, link).
+            ///
+            /*--cef()--*/
+            virtual DECL void UpdateDragCursor(CefRefPtr<CefBrowser> browser, CefRenderHandler::DragOperation operation)
+            {
+                return _renderWebBrowser->UpdateDragCursor((CefSharp::DragOperationsMask)operation);
+            }
+
+            ///
+            // Called when the IME composition range has changed. |selected_range| is the
+            // range of characters that have been selected. |character_bounds| is the
+            // bounds of each character in view coordinates.
+            ///
+            /*--cef()--*/
+            virtual DECL void OnImeCompositionRangeChanged(CefRefPtr<CefBrowser> browser, const CefRange& selectedRange, const RectList& characterBounds)
+            {
+                auto charBounds = gcnew cli::array<Rect>((int)characterBounds.size());
+
+                std::vector<CefRect>::const_iterator it = characterBounds.begin();
+                for (int index = 0; it != characterBounds.end(); ++it, index++)
+                {
+                    charBounds[index] = Rect((*it).x, (*it).y, (*it).width, (*it).height);
+                }
+
+                _renderWebBrowser->OnImeCompositionRangeChanged(Range(selectedRange.from, selectedRange.to), charBounds);
             }
 
         private:

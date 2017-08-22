@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -37,7 +37,7 @@ namespace CefSharp.Internals
                 if (!running)
                 {
                     cancellationTokenSource = new CancellationTokenSource();
-                    Task.Factory.StartNew(ConsumeTasks, TaskCreationOptions.LongRunning);
+                    Task.Factory.StartNew(ConsumeTasks, cancellationTokenSource.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
                     running = true;
                 }
             }
@@ -77,11 +77,29 @@ namespace CefSharp.Internals
         {
             try
             {
-                while (!cancellationTokenSource.IsCancellationRequested)
+                
+                if(CefSharpSettings.ConcurrentTaskExecution)
                 {
-                    var task = queue.Take(cancellationTokenSource.Token);
-                    task.RunSynchronously();
-                    OnMethodInvocationComplete(task.Result);
+                    //New experimental behaviour that Starts the Tasks on TaskScheduler.Default 
+                    while (!cancellationTokenSource.IsCancellationRequested)
+                    {
+                        var task = queue.Take(cancellationTokenSource.Token);
+                        task.ContinueWith((t) =>
+                        {
+                            OnMethodInvocationComplete(t.Result);
+                        }, cancellationTokenSource.Token);
+                        task.Start(TaskScheduler.Default);
+                    }
+                }
+                else
+                {
+                    //Old behaviour, runs Tasks in sequential order on the current Thread.
+                    while (!cancellationTokenSource.IsCancellationRequested)
+                    {
+                        var task = queue.Take(cancellationTokenSource.Token);
+                        task.RunSynchronously();
+                        OnMethodInvocationComplete(task.Result);
+                    }
                 }
             }
             catch (OperationCanceledException)

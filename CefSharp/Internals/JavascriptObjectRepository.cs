@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using CefSharp.ModelBinding;
 
 namespace CefSharp.Internals
 {
@@ -27,20 +28,26 @@ namespace CefSharp.Internals
     /// All of the registered objects are tracked via meta-data for the objects 
     /// expressed starting with the JavaScriptObject type.
     /// </summary>
-    public class JavascriptObjectRepository : DisposableResource
+    public class JavascriptObjectRepository
     {
         private static long lastId;
 
-        // A hash from assigned object ids to the objects,
-        // this is done to speed up finding the object in O(1) time
-        // instead of traversing the JavaScriptRootObject tree.
+        /// <summary>
+        /// A hash from assigned object ids to the objects,
+        /// this is done to speed up finding the object in O(1) time
+        /// instead of traversing the JavaScriptRootObject tree.
+        /// </summary>
         private readonly Dictionary<long, JavascriptObject> objects = new Dictionary<long, JavascriptObject>();
 
-        // This is the root of the objects that get serialized to the child
-        // process.
+        /// <summary>
+        /// This is the root of the objects that get serialized to the child process.
+        /// </summary>
         public JavascriptRootObject RootObject { get; private set; }
-        // This is the root of the objects that get serialized to the child
-        // process with cef ipc serialization (wcf not required).
+        
+        /// <summary>
+        /// This is the root of the objects that get serialized to the child
+        /// process with cef ipc serialization (wcf not required).
+        /// </summary>
         public JavascriptRootObject AsyncRootObject { get; private set; }
 
         public JavascriptObjectRepository()
@@ -64,22 +71,25 @@ namespace CefSharp.Internals
             return result;
         }
 
-        public void RegisterAsync(string name, object value, bool camelCaseJavascriptNames)
+        public void RegisterAsync(string name, object value, BindingOptions options)
         {
-            AsyncRootObject.MemberObjects.Add(CreateInternal(name, value, camelCaseJavascriptNames, analyseProperties: false));
+            AsyncRootObject.MemberObjects.Add(CreateInternal(name, value, analyseProperties: false, options: options));
         }
 
-        public void Register(string name, object value, bool camelCaseJavascriptNames)
+        public void Register(string name, object value, BindingOptions options)
         {
-            RootObject.MemberObjects.Add(CreateInternal(name, value, camelCaseJavascriptNames, analyseProperties: true));
+            RootObject.MemberObjects.Add(CreateInternal(name, value, analyseProperties: true, options: options));
         }
 
-        private JavascriptObject CreateInternal(string name, object value, bool camelCaseJavascriptNames, bool analyseProperties)
+        private JavascriptObject CreateInternal(string name, object value, bool analyseProperties, BindingOptions options)
         {
+            var camelCaseJavascriptNames = options == null ? true : options.CamelCaseJavascriptNames;
             var jsObject = CreateJavascriptObject(camelCaseJavascriptNames);
             jsObject.Value = value;
             jsObject.Name = name;
             jsObject.JavascriptName = name;
+            jsObject.Binder = options == null ? null : options.Binder;
+            jsObject.MethodInterceptor = options == null ? null : options.MethodInterceptor;
 
             AnalyseObjectForBinding(jsObject, analyseMethods: true, analyseProperties: analyseProperties, readPropertyValue: false, camelCaseJavascriptNames: camelCaseJavascriptNames);
 
@@ -104,9 +114,45 @@ namespace CefSharp.Internals
 
             try
             {
-                // Do we have enough arguments? Add Type.Missing for any that we don't have incase of optional params
+                //Check if the bound object method contains a ParamArray as the last parameter on the method signature.
+                //NOTE: No additional parameters are permitted after the params keyword in a method declaration,
+                //and only one params keyword is permitted in a method declaration.
+                //https://msdn.microsoft.com/en-AU/library/w5zay9db.aspx
+                if (method.HasParamArray)
+                {
+                    var paramList = new List<object>(method.Parameters.Count);
+
+                    //Loop through all of the method parameters on the bound object.
+                    for (var i = 0; i < method.Parameters.Count; i++)
+                    {
+                        //If the method parameter is a paramArray IE: (params string[] args)
+                        //grab the parameters from the javascript function starting at the current bound object parameter index
+                        //and add create an array that will be passed in as the last bound object method parameter.
+                        if (method.Parameters[i].IsParamArray)
+                        {
+                            var convertedParams = new List<object>();
+                            for (var s = i; s < parameters.Length; s++)
+                            {
+                                convertedParams.Add(parameters[s]);
+                            }
+                            paramList.Add(convertedParams.ToArray());
+                        }
+                        else
+                        {
+                            var jsParam = parameters.ElementAtOrDefault(i);
+                            paramList.Add(jsParam);
+                        }
+                    }
+
+                    parameters = paramList.ToArray();
+                }
+                
+                //Check for parameter count missmatch between the parameters on the javascript function and the
+                //number of parameters on the bound object method. (This is relevant for methods that have default values)
+                //NOTE it's possible to have default params and a paramArray, so check missing params last
                 var missingParams = method.ParameterCount - parameters.Length;
-                if (missingParams > 0)
+
+                if(missingParams > 0)
                 {
                     var paramList = new List<object>(parameters);
 
@@ -120,11 +166,40 @@ namespace CefSharp.Internals
 
                 try
                 {
-                    result = method.Function(obj.Value, parameters);
+                    if(obj.Binder != null)
+                    { 
+                        for (var i = 0; i < parameters.Length; i++)
+                        { 
+                            if(parameters[i] != null)
+                            { 
+                                var paramType = method.Parameters[i].Type;
+
+                                if(parameters[i].GetType() == typeof(Dictionary<string, object>))
+                                {
+                                    var dictionary = (Dictionary<string, object>)parameters[i];
+                                    parameters[i] = obj.Binder.Bind(dictionary, paramType);
+                                }
+                                else if (parameters[i].GetType() == typeof(List<object>))
+                                {
+                                    var list = (List<object>)parameters[i];
+                                    parameters[i] = obj.Binder.Bind(list, paramType);
+                                }
+                            }
+                        }
+                    }
+
+                    if (obj.MethodInterceptor == null) 
+                    {
+                        result = method.Function(obj.Value, parameters);
+                    }
+                    else 
+                    {
+                        result = obj.MethodInterceptor.Intercept(() => method.Function(obj.Value, parameters), method.ManagedName);
+                    }
                 }
                 catch (Exception e)
                 {
-                    throw new InvalidOperationException("Could not execute method: " + name + "(" + String.Join(", ", parameters) + ")" + " - Missing Parameters: " + missingParams, e);
+                    throw new InvalidOperationException("Could not execute method: " + name + "(" + String.Join(", ", parameters) + ") " + (missingParams > 0 ? "- Missing Parameters: " + missingParams : ""), e);
                 }
 
                 if(result != null && IsComplexType(result.GetType()))
@@ -287,6 +362,14 @@ namespace CefSharp.Internals
             jsMethod.JavascriptName = GetJavascriptName(methodInfo.Name, camelCaseJavascriptNames);
             jsMethod.Function = methodInfo.Invoke;
             jsMethod.ParameterCount = methodInfo.GetParameters().Length;
+            jsMethod.Parameters = methodInfo.GetParameters()
+                .Select(t => new MethodParameter()
+                {
+                    IsParamArray = t.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0,
+                    Type = t.ParameterType
+                }).ToList();
+            //Pre compute HasParamArray for a very minor performance gain 
+            jsMethod.HasParamArray = jsMethod.Parameters.LastOrDefault(t => t.IsParamArray) != null;
 
             return jsMethod;
         }
@@ -322,7 +405,7 @@ namespace CefSharp.Internals
                 baseType = Nullable.GetUnderlyingType(type);
             }
 
-            if (baseType == null || baseType.Namespace.StartsWith("System"))
+            if (baseType == null || baseType.IsArray || baseType.Namespace.StartsWith("System"))
             {
                 return false;
             }
@@ -342,7 +425,7 @@ namespace CefSharp.Internals
                 return string.Empty;
             }
 
-            return char.ToLower(str[0]) + str.Substring(1);
+            return char.ToLowerInvariant(str[0]) + str.Substring(1);
         }
     }
 }

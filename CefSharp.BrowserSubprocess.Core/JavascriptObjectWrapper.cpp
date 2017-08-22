@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Project. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 #pragma once
@@ -20,7 +20,7 @@ namespace CefSharp
             );
 
         //V8Value that represents this javascript object - only one per complex type
-        auto javascriptObject = CefV8Value::CreateObject(_jsPropertyHandler.get());
+        auto javascriptObject = CefV8Value::CreateObject(_jsPropertyHandler.get(), NULL);
         auto objectName = StringUtils::ToNative(object->JavascriptName);
         v8Value->SetValue(objectName, javascriptObject, V8_PROPERTY_ATTRIBUTE_NONE);
 

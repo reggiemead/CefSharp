@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Project. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -167,7 +167,7 @@ namespace CefSharp
                     auto size = subDict->GetSize();
                     std::vector<CefString> keys;
                     subDict->GetKeys(keys);
-                    auto result = CefV8Value::CreateObject(nullptr);
+                    auto result = CefV8Value::CreateObject(nullptr, nullptr);
                     for (auto i = 0; i < size; i++)
                     {
                         result->SetValue(keys[i], DeserializeV8Object(subDict, keys[i]), V8_PROPERTY_ATTRIBUTE_NONE);

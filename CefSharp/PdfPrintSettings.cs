@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -57,6 +57,11 @@ namespace CefSharp
         /// Margin type.
         /// </summary>
         public CefPdfPrintMarginType MarginType { get; set; }
+
+        /// <summary>
+        /// Scale the PDF by the specified amount, defaults to 100%.
+        /// </summary>
+        public int ScaleFactor { get; set; }
 
         /// <summary>
         /// Set to true to print headers and footers or false to not print

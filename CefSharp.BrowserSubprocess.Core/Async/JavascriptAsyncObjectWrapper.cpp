@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Project. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -18,7 +18,7 @@ namespace CefSharp
             void JavascriptAsyncObjectWrapper::Bind(JavascriptObject^ object, const CefRefPtr<CefV8Value> &value, const CefRefPtr<CefV8Value> &promiseCreator)
             {
                 //V8Value that represents this javascript object - only one per complex type, no accessor
-                auto javascriptObject = CefV8Value::CreateObject(nullptr);
+                auto javascriptObject = CefV8Value::CreateObject(nullptr, nullptr);
                 auto objectName = StringUtils::ToNative(object->JavascriptName);
                 value->SetValue(objectName, javascriptObject, V8_PROPERTY_ATTRIBUTE_NONE);
 

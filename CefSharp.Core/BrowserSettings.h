@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -15,17 +15,30 @@ namespace CefSharp
     /// tested. Many of these and other settings can also configured using command-
     /// line switches.
     /// </summary>
-    public ref class BrowserSettings
+    public ref class BrowserSettings : IBrowserSettings
     {
     internal:
         CefBrowserSettings* _browserSettings;
 
     public:
-        BrowserSettings() : _browserSettings(new CefBrowserSettings()) { }
+        /// <summary>
+        /// Default Constructor
+        /// </summary>
+        BrowserSettings() : _browserSettings(new CefBrowserSettings())
+        {
+        }
+
+        /// <summary>
+        /// Internal Constructor
+        /// </summary>
+        BrowserSettings(CefBrowserSettings* browserSettings)
+        {
+            _browserSettings = browserSettings;
+        }
 
         !BrowserSettings()
         {
-            delete _browserSettings;
+            _browserSettings = NULL;
         }
 
         ~BrowserSettings()
@@ -33,61 +46,91 @@ namespace CefSharp
             this->!BrowserSettings();
         }
 
-        property String^ StandardFontFamily
+        /// <summary>
+        /// StandardFontFamily
+        /// </summary>
+        virtual property String^ StandardFontFamily
         {
             String^ get() { return StringUtils::ToClr(_browserSettings->standard_font_family); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_browserSettings->standard_font_family, value); }
         }
 
-        property String^ FixedFontFamily
+        /// <summary>
+        /// FixedFontFamily
+        /// </summary>
+        virtual property String^ FixedFontFamily
         {
             String^ get() { return StringUtils::ToClr(_browserSettings->fixed_font_family); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_browserSettings->fixed_font_family, value); }
         }
 
-        property String^ SerifFontFamily
+        /// <summary>
+        /// SerifFontFamily
+        /// </summary>
+        virtual property String^ SerifFontFamily
         {
             String^ get() { return StringUtils::ToClr(_browserSettings->serif_font_family); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_browserSettings->serif_font_family, value); }
         }
 
-        property String^ SansSerifFontFamily
+        /// <summary>
+        /// SansSerifFontFamily
+        /// </summary>
+        virtual property String^ SansSerifFontFamily
         {
             String^ get() { return StringUtils::ToClr(_browserSettings->sans_serif_font_family); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_browserSettings->sans_serif_font_family, value); }
         }
 
-        property String^ CursiveFontFamily
+        /// <summary>
+        /// CursiveFontFamily
+        /// </summary>
+        virtual property String^ CursiveFontFamily
         {
             String^ get() { return StringUtils::ToClr(_browserSettings->cursive_font_family); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_browserSettings->cursive_font_family, value); }
         }
 
-        property String^ FantasyFontFamily
+        /// <summary>
+        /// FantasyFontFamily
+        /// </summary>
+        virtual property String^ FantasyFontFamily
         {
             String^ get() { return StringUtils::ToClr(_browserSettings->fantasy_font_family); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_browserSettings->fantasy_font_family, value); }
         }
 
-        property int DefaultFontSize
+        /// <summary>
+        /// DefaultFontSize
+        /// </summary>
+        virtual property int DefaultFontSize
         {
             int get() { return _browserSettings->default_font_size; }
             void set(int value) { _browserSettings->default_font_size = value; }
         }
 
-        property int DefaultFixedFontSize
+        /// <summary>
+        /// DefaultFixedFontSize
+        /// </summary>
+        virtual property int DefaultFixedFontSize
         {
             int get() { return _browserSettings->default_fixed_font_size; }
             void set(int value) { _browserSettings->default_fixed_font_size = value; }
         }
 
-        property int MinimumFontSize
+        /// <summary>
+        /// MinimumFontSize
+        /// </summary>
+        virtual property int MinimumFontSize
         {
             int get() { return _browserSettings->minimum_font_size; }
             void set(int value) { _browserSettings->minimum_font_size = value; }
         }
 
-        property int MinimumLogicalFontSize
+        /// <summary>
+        /// MinimumLogicalFontSize
+        /// </summary>
+        virtual property int MinimumLogicalFontSize
         {
             int get() { return _browserSettings->minimum_logical_font_size; }
             void set(int value) { _browserSettings->minimum_logical_font_size = value; }
@@ -97,7 +140,7 @@ namespace CefSharp
         /// Default encoding for Web content. If empty "ISO-8859-1" will be used. Also
         /// configurable using the "default-encoding" command-line switch.
         /// </summary>
-        property String^ DefaultEncoding
+        virtual property String^ DefaultEncoding
         {
             String^ get() { return StringUtils::ToClr(_browserSettings->default_encoding); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_browserSettings->default_encoding, value); }
@@ -107,17 +150,17 @@ namespace CefSharp
         /// Controls the loading of fonts from remote sources. Also configurable using
         /// the "disable-remote-fonts" command-line switch.
         /// </summary>
-        property CefState RemoteFonts
+        virtual property CefState RemoteFonts
         {
             CefState get() { return (CefState)_browserSettings->remote_fonts; }
             void set(CefState value) { _browserSettings->remote_fonts = (cef_state_t)value; }
         }
 
         /// <summary>
-        /// Controls whether JavaScript can be executed. Also configurable using the
-        /// "disable-javascript" command-line switch.
+        /// Controls whether JavaScript can be executed.
+        /// (Disable javascript)
         /// </summary>
-        property CefState Javascript
+        virtual property CefState Javascript
         {
             CefState get() { return (CefState)_browserSettings->javascript; }
             void set(CefState value) { _browserSettings->javascript = (cef_state_t)value; }
@@ -128,7 +171,7 @@ namespace CefSharp
         /// configurable using the "disable-javascript-open-windows" command-line
         /// switch.
         /// </summary>
-        property CefState JavascriptOpenWindows
+        virtual property CefState JavascriptOpenWindows
         {
             CefState get() { return (CefState)_browserSettings->javascript_open_windows; }
             void set(CefState value) { _browserSettings->javascript_open_windows = (cef_state_t)value; }
@@ -140,7 +183,7 @@ namespace CefSharp
         /// were opened via JavaScript. Also configurable using the
         /// "disable-javascript-close-windows" command-line switch.
         /// </summary>
-        property CefState JavascriptCloseWindows
+        virtual property CefState JavascriptCloseWindows
         {
             CefState get() { return (CefState)_browserSettings->javascript_close_windows; }
             void set(CefState value) { _browserSettings->javascript_close_windows = (cef_state_t)value; }
@@ -150,7 +193,7 @@ namespace CefSharp
         /// Controls whether JavaScript can access the clipboard. Also configurable
         /// using the "disable-javascript-access-clipboard" command-line switch.
         /// </summary>
-        property CefState JavascriptAccessClipboard
+        virtual property CefState JavascriptAccessClipboard
         {
             CefState get() { return (CefState)_browserSettings->javascript_access_clipboard; }
             void set(CefState value) { _browserSettings->javascript_access_clipboard = (cef_state_t)value; }
@@ -162,27 +205,17 @@ namespace CefSharp
         /// be enabled. Also configurable using the "disable-javascript-dom-paste"
         /// command-line switch.
         /// </summary>
-        property CefState JavascriptDomPaste
+        virtual property CefState JavascriptDomPaste
         {
             CefState get() { return (CefState)_browserSettings->javascript_dom_paste; }
             void set(CefState value) { _browserSettings->javascript_dom_paste = (cef_state_t)value; }
         }
 
         /// <summary>
-        /// Controls whether the caret position will be drawn. Also configurable using
-        /// the "enable-caret-browsing" command-line switch.
-        /// </summary>
-        property CefState CaretBrowsing
-        {
-            CefState get() { return (CefState)_browserSettings->caret_browsing; }
-            void set(CefState value) { _browserSettings->caret_browsing = (cef_state_t)value; }
-        }
-
-        /// <summary>
         /// Controls whether any plugins will be loaded. Also configurable using the
         /// "disable-plugins" command-line switch.
         /// </summary>
-        property CefState Plugins
+        virtual property CefState Plugins
         {
             CefState get() { return (CefState)_browserSettings->plugins; }
             void set(CefState value) { _browserSettings->plugins = (cef_state_t)value; }
@@ -192,7 +225,7 @@ namespace CefSharp
         /// Controls whether file URLs will have access to all URLs. Also configurable
         /// using the "allow-universal-access-from-files" command-line switch.
         /// </summary>
-        property CefState UniversalAccessFromFileUrls
+        virtual property CefState UniversalAccessFromFileUrls
         {
             CefState get() { return (CefState)_browserSettings->universal_access_from_file_urls; }
             void set(CefState value) { _browserSettings->universal_access_from_file_urls = (cef_state_t)value; }
@@ -202,7 +235,7 @@ namespace CefSharp
         /// Controls whether file URLs will have access to other file URLs. Also
         /// configurable using the "allow-access-from-files" command-line switch.
         /// </summary>
-        property CefState FileAccessFromFileUrls
+        virtual property CefState FileAccessFromFileUrls
         {
             CefState get() { return (CefState)_browserSettings->file_access_from_file_urls; }
             void set(CefState value) { _browserSettings->file_access_from_file_urls = (cef_state_t)value; }
@@ -214,7 +247,7 @@ namespace CefSharp
         /// security behavior such as cross-site scripting (XSS). Also configurable
         /// using the "disable-web-security" command-line switch.
         /// </summary>
-        property CefState WebSecurity
+        virtual property CefState WebSecurity
         {
             CefState get() { return (CefState)_browserSettings->web_security; }
             void set(CefState value) { _browserSettings->web_security = (cef_state_t)value; }
@@ -225,7 +258,7 @@ namespace CefSharp
         /// will still be rendered if requested. Also configurable using the
         /// "disable-image-loading" command-line switch.
         /// </summary>
-        property CefState ImageLoading
+        virtual property CefState ImageLoading
         {
             CefState get() { return (CefState)_browserSettings->image_loading; }
             void set(CefState value) { _browserSettings->image_loading = (cef_state_t)value; }
@@ -236,7 +269,7 @@ namespace CefSharp
         /// configurable using the "image-shrink-standalone-to-fit" command-line
         /// switch.
         /// </summary>
-        property CefState ImageShrinkStandaloneToFit
+        virtual property CefState ImageShrinkStandaloneToFit
         {
             CefState get() { return (CefState)_browserSettings->image_shrink_standalone_to_fit; }
             void set(CefState value) { _browserSettings->image_shrink_standalone_to_fit = (cef_state_t)value; }
@@ -246,7 +279,7 @@ namespace CefSharp
         /// Controls whether text areas can be resized. Also configurable using the
         /// "disable-text-area-resize" command-line switch.
         /// </summary>
-        property CefState TextAreaResize
+        virtual property CefState TextAreaResize
         {
             CefState get() { return (CefState)_browserSettings->text_area_resize; }
             void set(CefState value) { _browserSettings->text_area_resize = (cef_state_t)value; }
@@ -256,7 +289,7 @@ namespace CefSharp
         /// Controls whether the tab key can advance focus to links. Also configurable
         /// using the "disable-tab-to-links" command-line switch.
         /// </summary>
-        property CefState TabToLinks
+        virtual property CefState TabToLinks
         {
             CefState get() { return (CefState)_browserSettings->tab_to_links; }
             void set(CefState value) { _browserSettings->tab_to_links = (cef_state_t)value; }
@@ -266,7 +299,7 @@ namespace CefSharp
         /// Controls whether local storage can be used. Also configurable using the
         /// "disable-local-storage" command-line switch.
         /// </summary>
-        property CefState LocalStorage
+        virtual property CefState LocalStorage
         {
             CefState get() { return (CefState)_browserSettings->local_storage; }
             void set(CefState value) { _browserSettings->local_storage = (cef_state_t)value; }
@@ -276,7 +309,7 @@ namespace CefSharp
         /// Controls whether databases can be used. Also configurable using the
         /// "disable-databases" command-line switch.
         /// </summary>
-        property CefState Databases
+        virtual property CefState Databases
         {
             CefState get() { return (CefState)_browserSettings->databases; }
             void set(CefState value) { _browserSettings->databases = (cef_state_t)value; }
@@ -286,7 +319,7 @@ namespace CefSharp
         /// Controls whether the application cache can be used. Also configurable using
         /// the "disable-application-cache" command-line switch.
         /// </summary>
-        property CefState ApplicationCache
+        virtual property CefState ApplicationCache
         {
             CefState get() { return (CefState)_browserSettings->application_cache; }
             void set(CefState value) { _browserSettings->application_cache = (cef_state_t)value; }
@@ -297,7 +330,7 @@ namespace CefSharp
         /// support and may not work on all systems even when enabled. Also
         /// configurable using the "disable-webgl" command-line switch.
         /// </summary>
-        property CefState WebGl
+        virtual property CefState WebGl
         {
             CefState get() { return (CefState)_browserSettings->webgl; }
             void set(CefState value) { _browserSettings->webgl = (cef_state_t)value; }
@@ -306,11 +339,11 @@ namespace CefSharp
         /// <summary>
         /// Opaque background color used for the browser before a document is loaded
         /// and when no document color is specified. By default the background color
-        /// will be the same as CefSettings.background_color. Only the RGB compontents
+        /// will be the same as CefSettings.BackgroundColor. Only the RGB compontents
         /// of the specified value will be used. The alpha component must greater than
         /// 0 to enable use of the background color but will be otherwise ignored.
         /// </summary>
-        property uint32 BackgroundColor
+        virtual property uint32 BackgroundColor
         {
             uint32 get() { return _browserSettings->background_color; }
             void set(uint32 value) { _browserSettings->background_color = value; }
@@ -343,6 +376,10 @@ namespace CefSharp
             void set(int value) { _browserSettings->windowless_frame_rate = value; }
         }		
 
+        /// <summary>
+        /// When the WPF/OffScreen browser is created, specify if the background supports
+        /// transparency
+        /// </summary>
         property Nullable<bool> OffScreenTransparentBackground;
     };
 }

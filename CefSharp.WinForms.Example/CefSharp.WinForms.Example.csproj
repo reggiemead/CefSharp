@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CefSharp.WinForms.Example</RootNamespace>
     <AssemblyName>CefSharp.WinForms.Example</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <StartupObject>
     </StartupObject>
@@ -21,7 +21,7 @@
     <OldToolsVersion>3.5</OldToolsVersion>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>
     <TargetFrameworkProfile />
-    <NuGetPackageImportStamp>3e3a1bb0</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>5f632012</NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <PlatformTarget>x64</PlatformTarget>
@@ -57,6 +57,7 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Security" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -80,10 +81,12 @@
       <DependentUpon>BrowserTabUserControl.cs</DependentUpon>
     </Compile>
     <Compile Include="ChromeWidgetMessageInterceptor.cs" />
+    <Compile Include="Handlers\DisplayHandler.cs" />
     <Compile Include="Handlers\GeolocationHandler.cs" />
     <Compile Include="Handlers\KeyboardHandler.cs" />
     <Compile Include="Handlers\LifeSpanHandler.cs" />
     <Compile Include="Handlers\MenuHandler.cs" />
+    <Compile Include="Handlers\WinFormsBrowserProcessHandler.cs" />
     <Compile Include="Handlers\WinFormsRequestHandler.cs" />
     <Compile Include="InputBox.cs">
       <SubType>Form</SubType>
@@ -143,6 +146,7 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="app.manifest" />
+    <None Include="crash_reporter.cfg" />
     <None Include="packages.config" />
     <None Include="Resources\nav_left_green.png" />
   </ItemGroup>
@@ -181,6 +185,6 @@
   <Import Project="$(SolutionDir)\CefSharp.Native.props" />
   <Import Project="..\packages\cef.redist.x64.3.2272.30\build\cef.redist.x64.targets" Condition="Exists('..\packages\cef.redist.x64.3.2272.30\build\cef.redist.x64.targets')" />
   <Import Project="..\packages\cef.redist.x86.3.2272.30\build\cef.redist.x86.targets" Condition="Exists('..\packages\cef.redist.x86.3.2272.30\build\cef.redist.x86.targets')" />
-  <Import Project="..\packages\cef.redist.x64.3.2526.1362\build\cef.redist.x64.targets" Condition="Exists('..\packages\cef.redist.x64.3.2526.1362\build\cef.redist.x64.targets')" />
-  <Import Project="..\packages\cef.redist.x86.3.2526.1362\build\cef.redist.x86.targets" Condition="Exists('..\packages\cef.redist.x86.3.2526.1362\build\cef.redist.x86.targets')" />
+  <Import Project="..\packages\cef.redist.x64.3.3029.1611\build\cef.redist.x64.targets" Condition="Exists('..\packages\cef.redist.x64.3.3029.1611\build\cef.redist.x64.targets')" />
+  <Import Project="..\packages\cef.redist.x86.3.3029.1611\build\cef.redist.x86.targets" Condition="Exists('..\packages\cef.redist.x86.3.3029.1611\build\cef.redist.x86.targets')" />
 </Project>

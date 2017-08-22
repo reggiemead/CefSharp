@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -7,6 +7,10 @@ using System.Threading.Tasks;
 
 namespace CefSharp
 {
+    /// <summary>
+    /// Interface used to represent the browser process aspects of a browser window.
+    /// They may be called on any thread in that process unless otherwise indicated in the comments. 
+    /// </summary>
     public interface IBrowserHost : IDisposable
     {
         /// <summary>
@@ -31,6 +35,54 @@ namespace CefSharp
         /// Explicitly close the developer tools window if one exists for this browser instance.
         /// </summary>
         void CloseDevTools();
+
+        /// <summary>
+        /// Returns true if this browser currently has an associated DevTools browser.
+        /// Must be called on the CEF UI thread.
+        /// </summary>
+        bool HasDevTools { get; }
+
+        /// <summary>
+        /// Call this method when the user drags the mouse into the web view (before calling <see cref="DragTargetDragOver"/>/<see cref="DragTargetDragLeave"/>/<see cref="DragTargetDragDrop"/>).
+        /// </summary>
+        void DragTargetDragEnter(IDragData dragData, MouseEvent mouseEvent, DragOperationsMask allowedOperations);
+
+        /// <summary>
+        /// Call this method each time the mouse is moved across the web view during a drag operation (after calling <see cref="DragTargetDragEnter"/> and before calling <see cref="DragTargetDragLeave"/>/<see cref="DragTargetDragDrop"/>). 
+        /// This method is only used when window rendering is disabled.
+        /// </summary>
+        void DragTargetDragOver(MouseEvent mouseEvent, DragOperationsMask allowedOperations);
+
+        /// <summary>
+        /// Call this method when the user completes the drag operation by dropping the object onto the web view (after calling <see cref="DragTargetDragEnter"/>). 
+        /// The object being dropped is <see cref="IDragData"/>, given as an argument to the previous <see cref="DragTargetDragEnter"/> call. 
+        /// This method is only used when window rendering is disabled.
+        /// </summary>
+        void DragTargetDragDrop(MouseEvent mouseEvent);
+
+        /// <summary>
+        /// Call this method when the drag operation started by a <see cref="IRenderWebBrowser.StartDragging"/> call has ended either in a drop or by being cancelled.
+        /// If the web view is both the drag source and the drag target then all DragTarget* methods should be called before DragSource* methods.
+        /// This method is only used when window rendering is disabled. 
+        /// </summary>
+        /// <param name="x">x mouse coordinate relative to the upper-left corner of the view.</param>
+        /// <param name="y">y mouse coordinate relative to the upper-left corner of the view.</param>
+        /// <param name="op">Drag Operations mask</param>
+        void DragSourceEndedAt(int x, int y, DragOperationsMask op);
+
+        /// <summary>
+        /// Call this method when the user drags the mouse out of the web view (after calling <see cref="DragTargetDragEnter"/>).
+        /// This method is only used when window rendering is disabled.
+        /// </summary>
+        void DragTargetDragLeave();
+        
+        /// <summary>
+        /// Call this method when the drag operation started by a <see cref="IRenderWebBrowser.StartDragging"/> call has completed.
+        /// This method may be called immediately without first calling DragSourceEndedAt to cancel a drag operation.
+        /// If the web view is both the drag source and the drag target then all DragTarget* methods should be called before DragSource* mthods.
+        /// This method is only used when window rendering is disabled. 
+        /// </summary>
+        void DragSourceSystemDragEnded();
 
         /// <summary>
         /// Search for text
@@ -69,6 +121,52 @@ namespace CefSharp
         void Invalidate(PaintElementType type);
 
         /// <summary>
+        /// Begins a new composition or updates the existing composition. Blink has a
+        /// special node (a composition node) that allows the input method to change
+        /// text without affecting other DOM nodes. 
+        ///
+        /// This method may be called multiple times as the composition changes. When
+        /// the client is done making changes the composition should either be canceled
+        /// or completed. To cancel the composition call ImeCancelComposition. To
+        /// complete the composition call either ImeCommitText or
+        /// ImeFinishComposingText. Completion is usually signaled when:
+        /// The client receives a WM_IME_COMPOSITION message with a GCS_RESULTSTR
+        /// flag (on Windows).
+        /// This method is only used when window rendering is disabled. (WPF and OffScreen) 
+        /// </summary>
+        /// <param name="text">is the optional text that
+        /// will be inserted into the composition node</param>
+        /// <param name="underlines">is an optional set
+        /// of ranges that will be underlined in the resulting text.</param>
+        /// <param name="selectionRange"> is an optional range of the resulting text that
+        /// will be selected after insertion or replacement. </param>
+        void ImeSetComposition(string text, CompositionUnderline[] underlines, Range? selectionRange);
+
+        /// <summary>
+        /// Completes the existing composition by optionally inserting the specified
+        /// text into the composition node.
+        /// This method is only used when window rendering is disabled. (WPF and OffScreen) 
+        /// </summary>
+        /// <param name="text">text that will be committed</param>
+        void ImeCommitText(string text);
+
+        /// <summary>
+        /// Completes the existing composition by applying the current composition node
+        /// contents. See comments on ImeSetComposition for usage.
+        /// This method is only used when window rendering is disabled. (WPF and OffScreen) 
+        /// </summary>
+        /// <param name="keepSelection">If keepSelection is false the current selection, if any, will be discarded.</param>
+        void ImeFinishComposingText(bool keepSelection);
+
+        /// <summary>
+        /// Cancels the existing composition and discards the composition node
+        /// contents without applying them. See comments on ImeSetComposition for
+        /// usage.
+        /// This method is only used when window rendering is disabled. (WPF and OffScreen) 
+        /// </summary>
+        void ImeCancelComposition();
+
+        /// <summary>
         /// Get/Set Mouse cursor change disabled
         /// </summary>
         bool MouseCursorChangeDisabled { get; set; }
@@ -96,10 +194,9 @@ namespace CefSharp
         /// The caller is responsible for deleting the file when done.
         /// </summary>
         /// <param name="path">Output file location.</param>
-        /// <param name="settings">Print Settings.</param>
-        /// <returns>A task that represents the asynchronous print operation.
-        /// The result is true on success or false on failure to generate the Pdf.</returns>
-        Task<bool> PrintToPdfAsync(string path, PdfPrintSettings settings = null);
+        /// <param name="settings">Print Settings, can be null</param>
+        /// <param name="callback">Callback executed when printing complete</param>
+        void PrintToPdf(string path, PdfPrintSettings settings, IPrintToPdfCallback callback);
 
         /// <summary>
         /// If a misspelled word is currently selected in an editable node calling this method will replace it with the specified word.
@@ -130,25 +227,29 @@ namespace CefSharp
         void SendKeyEvent(KeyEvent keyEvent);
 
         /// <summary>
+        /// Send key event to browser based on operating system message
+        /// </summary>
+        /// <param name="message">message</param>
+        /// <param name="wParam">wParam</param>
+        /// <param name="lParam">lParam</param>
+        void SendKeyEvent(int message, int wParam, int lParam);
+
+        /// <summary>
         /// Send a mouse click event to the browser.
         /// </summary>
-        /// <param name="x">x coordinate - relative to upper-left corner of view</param>
-        /// <param name="y">y coordinate - relative to upper-left corner of view</param>
+        /// <param name=param name="mouseEvent">mouse event - x, y and modifiers</param>
         /// <param name="mouseButtonType">Mouse ButtonType</param>
         /// <param name="mouseUp">mouse up</param>
         /// <param name="clickCount">click count</param>
-        /// <param name="modifiers">click modifiers e.g. Ctrl</param>
-        void SendMouseClickEvent(int x, int y, MouseButtonType mouseButtonType, bool mouseUp, int clickCount, CefEventFlags modifiers);
+        void SendMouseClickEvent(MouseEvent mouseEvent, MouseButtonType mouseButtonType, bool mouseUp, int clickCount);
 
         /// <summary>
         /// Send a mouse wheel event to the browser.
         /// </summary>
-        /// <param name="x">X-Axis coordinate relative to the upper-left corner of the view.</param>
-        /// <param name="y">Y-Axis coordinate relative to the upper-left corner of the view.</param>
+        /// <param name=param name="mouseEvent">mouse event - x, y and modifiers</param>
         /// <param name="deltaX">Movement delta for X direction.</param>
         /// <param name="deltaY">movement delta for Y direction.</param>
-        /// /// <param name="modifiers">click modifiers e.g. Ctrl</param>
-        void SendMouseWheelEvent(int x, int y, int deltaX, int deltaY, CefEventFlags modifiers);
+        void SendMouseWheelEvent(MouseEvent mouseEvent, int deltaX, int deltaY);
 
         /// <summary>
         /// Set whether the browser is focused. (Used for Normal Rendering e.g. WinForms)
@@ -186,13 +287,13 @@ namespace CefSharp
         void StopFinding(bool clearSelection);
 
         /// <summary>
-        /// Send a mouse move event to the browser
+        /// Send a mouse move event to the browser, coordinates, 
         /// </summary>
         /// <param name="x">x coordinate - relative to upper-left corner of view</param>
         /// <param name="y">y coordinate - relative to upper-left corner of view</param>
         /// <param name="mouseLeave">mouse leave</param>
         /// <param name="modifiers">click modifiers .e.g Ctrl</param>
-        void SendMouseMoveEvent(int x, int y, bool mouseLeave, CefEventFlags modifiers);
+        void SendMouseMoveEvent(MouseEvent mouseEvent, bool mouseLeave);
 
         /// <summary>
         /// Notify the browser that it has been hidden or shown.
@@ -208,6 +309,22 @@ namespace CefSharp
         /// This method is only used when window rendering is disabled. 
         /// </summary>
         void WasResized();
+
+        /// <summary>
+        /// Retrieve a snapshot of current navigation entries as values sent to the
+        /// specified visitor. 
+        /// </summary>
+        /// <param name="visitor">visitor</param>
+        /// <param name="currentOnly">If true only the current navigation
+        /// entry will be sent, otherwise all navigation entries will be sent.</param>
+        void GetNavigationEntries(INavigationEntryVisitor visitor, bool currentOnly);
+
+        /// <summary>
+        /// Returns the current visible navigation entry for this browser. This method
+        /// can only be called on the CEF UI thread.
+        /// </summary>
+        /// <returns>the current navigation entry</returns>
+        NavigationEntry GetVisibleNavigationEntry();
 
         /// <summary>
         /// Gets/sets the maximum rate in frames per second (fps) that CefRenderHandler::

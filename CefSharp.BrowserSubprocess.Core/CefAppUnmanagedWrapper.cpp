@@ -1,10 +1,11 @@
-﻿// Copyright © 2010-2016 The CefSharp Project. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 #pragma once
 
 #include "Stdafx.h"
 
+#include "include\base\cef_logging.h"
 #include "CefBrowserWrapper.h"
 #include "CefAppUnmanagedWrapper.h"
 #include "JavascriptRootObjectWrapper.h"
@@ -97,7 +98,19 @@ namespace CefSharp
     };
 
     void CefAppUnmanagedWrapper::OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context)
-    { 
+    {
+        //Send a message to the browser processing signaling that OnContextReleased has been called
+        //only param is the FrameId. Currently an IPC message is only sent for the main frame - will see
+        //how viable this solution is and if it's worth expanding to sub/child frames.
+        if (frame->IsMain())
+        {
+            auto contextReleasedMessage = CefProcessMessage::Create(kOnContextReleasedRequest);
+
+            SetInt64(contextReleasedMessage->GetArgumentList(), 0, frame->GetIdentifier());
+
+            browser->SendProcessMessage(CefProcessId::PID_BROWSER, contextReleasedMessage);
+        }
+
         auto browserWrapper = FindBrowserWrapper(browser->GetIdentifier(), true);
 
         auto rootObjectWrappers = browserWrapper->JavascriptRootObjectWrappers;
@@ -255,6 +268,8 @@ namespace CefSharp
                 auto callbackRegistry = rootObjectWrapper->CallbackRegistry;
 
                 auto script = argList->GetString(2);
+                auto scriptUrl = argList->GetString(3);
+                auto startLine = argList->GetInt(4);
 
                 auto frame = browser->GetFrame(frameId);
                 if (frame.get())
@@ -266,7 +281,7 @@ namespace CefSharp
                         try
                         {
                             CefRefPtr<CefV8Exception> exception;
-                            success = context->Eval(script, result, exception);
+                            success = context->Eval(script, scriptUrl, startLine, result, exception);
                             
                             //we need to do this here to be able to store the v8context
                             if (success)
@@ -393,7 +408,7 @@ namespace CefSharp
         {
             auto frameId = GetInt64(argList, 0);
             auto callbackId = GetInt64(argList, 1);
-            
+
             JavascriptRootObjectWrapper^ rootObjectWrapper;
             browserWrapper->JavascriptRootObjectWrappers->TryGetValue(frameId, rootObjectWrapper);
 
@@ -402,17 +417,44 @@ namespace CefSharp
                 JavascriptAsyncMethodCallback^ callback;
                 if (rootObjectWrapper->TryGetAndRemoveMethodCallback(callbackId, callback))
                 {
-                    auto success = argList->GetBool(2);
-                    if (success)
+
+                    try 
                     {
-                        callback->Success(DeserializeV8Object(argList, 3));
+                        auto frame = browser->GetFrame(frameId);
+                        if (frame.get())
+                        {
+                            auto context = frame->GetV8Context();
+
+                            if (context.get() && context->Enter())
+                            {
+                                try
+                                {
+                                    auto success = argList->GetBool(2);
+                                    if (success)
+                                    {
+                                        callback->Success(DeserializeV8Object(argList, 3));
+                                    }
+                                    else
+                                    {
+                                        callback->Fail(argList->GetString(3));
+                                    }
+                                }
+                                finally
+                                {
+                                    context->Exit();
+                                }
+                            }
+                            else
+                            {
+                                callback->Fail("Unable to Enter Context");
+                            }
+                        }
                     }
-                    else
+                    finally
                     {
-                        callback->Fail(argList->GetString(3));
+                        //dispose
+                        delete callback;
                     }
-                    //dispose
-                    delete callback;
                 }
             }
             handled = true;
@@ -423,14 +465,20 @@ namespace CefSharp
 
     void CefAppUnmanagedWrapper::OnRenderThreadCreated(CefRefPtr<CefListValue> extraInfo)
     {
-        auto extensionList = extraInfo->GetList(0);
-
-        for (size_t i = 0; i < extensionList->GetSize(); i++)
+        //Check to see if we have a list
+        if (extraInfo.get())
         {
-            auto extension = extensionList->GetList(i);
-            auto ext = gcnew CefExtension(StringUtils::ToClr(extension->GetString(0)), StringUtils::ToClr(extension->GetString(1)));
+            auto extensionList = extraInfo->GetList(0);
+            if (extensionList.get())
+            {
+                for (size_t i = 0; i < extensionList->GetSize(); i++)
+                {
+                    auto extension = extensionList->GetList(i);
+                    auto ext = gcnew CefExtension(StringUtils::ToClr(extension->GetString(0)), StringUtils::ToClr(extension->GetString(1)));
 
-            _extensions->Add(ext);
+                    _extensions->Add(ext);
+                }
+            }
         }
     }
 
@@ -446,11 +494,11 @@ namespace CefSharp
         }
     }
 
-    void CefAppUnmanagedWrapper::OnRegisterCustomSchemes(CefRefPtr<CefSchemeRegistrar> registrar)
+    void CefAppUnmanagedWrapper::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar)
     {
         for each (CefCustomScheme^ scheme in _schemes->AsReadOnly())
         {
-            registrar->AddCustomScheme(StringUtils::ToNative(scheme->SchemeName), scheme->IsStandard, scheme->IsLocal, scheme->IsDisplayIsolated);
+            registrar->AddCustomScheme(StringUtils::ToNative(scheme->SchemeName), scheme->IsStandard, scheme->IsLocal, scheme->IsDisplayIsolated, scheme->IsSecure, scheme->IsCorsEnabled, false);
         }
     }
 }

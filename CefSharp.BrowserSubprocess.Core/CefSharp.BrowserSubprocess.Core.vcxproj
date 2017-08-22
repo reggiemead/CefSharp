@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(SolutionDir)\packages\cef.sdk.3.2526.1362\build\cef.sdk.props" Condition="Exists('$(SolutionDir)\packages\cef.sdk.3.2526.1362\build\cef.sdk.props')" />
+  <Import Project="..\packages\cef.sdk.3.3029.1611\build\cef.sdk.props" Condition="Exists('..\packages\cef.sdk.3.3029.1611\build\cef.sdk.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -23,6 +23,7 @@
     <ProjectGuid>{6C4BB501-2F8E-48AC-9AB5-8CFB2D74185C}</ProjectGuid>
     <Keyword>ManagedCProj</Keyword>
     <RootNamespace>CefSharpBrowserSubprocessCore</RootNamespace>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <Import Project="$(SolutionDir)\CefSharp.props" />
@@ -66,25 +67,33 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros">
-    <NuGetPackageImportStamp>0dc9356e</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>0c266be5</NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <LinkKeyFile>..\CefSharp.snk</LinkKeyFile>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <LinkKeyFile>..\CefSharp.snk</LinkKeyFile>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <LinkKeyFile>..\CefSharp.snk</LinkKeyFile>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <LinkKeyFile>..\CefSharp.snk</LinkKeyFile>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -162,7 +171,9 @@
     <ClInclude Include="Async\JavascriptAsyncMethodWrapper.h" />
     <ClInclude Include="Async\JavascriptAsyncObjectWrapper.h" />
     <ClInclude Include="CefAppUnmanagedWrapper.h" />
-    <ClInclude Include="CefAppWrapper.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="WcfEnabledSubProcess.h" />
+    <ClInclude Include="SubProcess.h" />
     <ClInclude Include="CefBrowserWrapper.h" />
     <ClInclude Include="JavascriptCallbackRegistry.h" />
     <ClInclude Include="JavascriptCallbackWrapper.h" />
@@ -187,7 +198,7 @@
     <ClCompile Include="Async\JavascriptAsyncMethodWrapper.cpp" />
     <ClCompile Include="Async\JavascriptAsyncObjectWrapper.cpp" />
     <ClCompile Include="CefAppUnmanagedWrapper.cpp" />
-    <ClCompile Include="CefAppWrapper.cpp" />
+    <ClCompile Include="WcfEnabledSubProcess.cpp" />
     <ClCompile Include="JavascriptCallbackRegistry.cpp" />
     <ClCompile Include="JavascriptMethodHandler.cpp" />
     <ClCompile Include="JavascriptMethodWrapper.cpp" />
@@ -211,6 +222,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

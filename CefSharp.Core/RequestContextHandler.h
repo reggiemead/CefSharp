@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -7,37 +7,57 @@
 #include "Stdafx.h"
 
 #include "Internals\TypeConversion.h"
+#include "CookieManager.h"
 
 namespace CefSharp
 {
     private class RequestContextHandler : public CefRequestContextHandler
     {
-        gcroot<IPluginHandler^> _pluginHandler;
+        gcroot<IRequestContextHandler^> _requestContextHandler;
 
     public:
-        RequestContextHandler(IPluginHandler^ pluginHandler)
-            : _pluginHandler(pluginHandler)
+        RequestContextHandler(IRequestContextHandler^ requestContextHandler)
+            : _requestContextHandler(requestContextHandler)
         {
         }
 
         ~RequestContextHandler()
         {
-            _pluginHandler = nullptr;
+            _requestContextHandler = nullptr;
+        }
+
+        virtual CefRefPtr<CefCookieManager> GetCookieManager() OVERRIDE
+        {
+            if (Object::ReferenceEquals(_requestContextHandler, nullptr))
+            {
+                return NULL;
+            }
+
+            auto cookieManager = _requestContextHandler->GetCookieManager();
+
+            if (cookieManager == nullptr)
+            {
+                return NULL;
+            }
+
+            return (CookieManager^)cookieManager;
         }
 
         virtual bool OnBeforePluginLoad(const CefString& mime_type,
             const CefString& plugin_url,
+            bool is_main_frame,
             const CefString& top_origin_url,
             CefRefPtr<CefWebPluginInfo> plugin_info,
             CefRequestContextHandler::PluginPolicy* plugin_policy) OVERRIDE
         {
-            if (!Object::ReferenceEquals(_pluginHandler, nullptr))
+            if (!Object::ReferenceEquals(_requestContextHandler, nullptr))
             {
                 auto pluginInfo = TypeConversion::FromNative(plugin_info);
                 auto pluginPolicy = (CefSharp::PluginPolicy)*plugin_policy;
 
-                auto result = _pluginHandler->OnBeforePluginLoad(StringUtils::ToClr(mime_type),
+                auto result = _requestContextHandler->OnBeforePluginLoad(StringUtils::ToClr(mime_type),
                                                                 StringUtils::ToClr(plugin_url),
+                                                                is_main_frame,
                                                                 StringUtils::ToClr(top_origin_url),
                                                                 pluginInfo,
                                                                 pluginPolicy);

@@ -1,9 +1,16 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 namespace CefSharp
 {
+    /// <summary>
+    /// Class that creates <see cref="IResourceHandler"/> instances for handling custom requests.
+    /// The methods of this class will always be called on the CEF IO thread. This interface
+    /// maps to the  CefRequestHandler::GetResourceHandler method. It was split out to allow for
+    /// the <see cref="DefaultResourceHandlerFactory"/> implementation that provides support
+    /// for the LoadHtml extension method.
+    /// </summary>
     public interface IResourceHandlerFactory
     {
         /// <summary>

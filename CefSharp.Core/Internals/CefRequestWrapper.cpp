@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -51,6 +51,13 @@ namespace CefSharp
             _wrappedRequest->SetMethod(StringUtils::ToNative(method));
         }
 
+        UInt64 CefRequestWrapper::Identifier::get()
+        {
+            ThrowIfDisposed();
+
+            return _wrappedRequest->GetIdentifier();
+        }
+
         void CefRequestWrapper::SetReferrer(String^ referrerUrl, CefSharp::ReferrerPolicy policy)
         {
             ThrowIfDisposed();
@@ -63,6 +70,13 @@ namespace CefSharp
             ThrowIfDisposed();
 
             return StringUtils::ToClr(_wrappedRequest->GetReferrerURL());
+        }
+
+        CefSharp::ResourceType CefRequestWrapper::ResourceType::get()
+        {
+            ThrowIfDisposed();
+
+            return (CefSharp::ResourceType)_wrappedRequest->GetResourceType();
         }
 
         CefSharp::ReferrerPolicy CefRequestWrapper::ReferrerPolicy::get()
@@ -130,6 +144,13 @@ namespace CefSharp
                 }
             }
             return _postData;
+        }
+
+        bool CefRequestWrapper::IsReadOnly::get()
+        {
+            ThrowIfDisposed();
+
+            return _wrappedRequest->IsReadOnly();
         }
 
         void CefRequestWrapper::InitializePostData()

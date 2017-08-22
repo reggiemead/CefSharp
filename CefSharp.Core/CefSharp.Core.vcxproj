@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(SolutionDir)\packages\cef.sdk.3.2526.1362\build\cef.sdk.props" Condition="Exists('$(SolutionDir)\packages\cef.sdk.3.2526.1362\build\cef.sdk.props')" />
+  <Import Project="..\packages\cef.sdk.3.3029.1611\build\cef.sdk.props" Condition="Exists('..\packages\cef.sdk.3.3029.1611\build\cef.sdk.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -23,9 +23,10 @@
     <ProjectGuid>{7B495581-2271-4F41-9476-ACB86E8C864F}</ProjectGuid>
     <RootNamespace>CefSharp</RootNamespace>
     <Keyword>ManagedCProj</Keyword>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <Import Project="$(SolutionDir)\CefSharp.props" />
+  <Import Project="..\CefSharp.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
@@ -66,11 +67,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>11.0.51106.1</_ProjectFileVersion>
-    <NuGetPackageImportStamp>a1be94e9</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>892d6872</NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>bin\$(Configuration)\</OutDir>
-    <IntDir>obj\$(Configuration)\</IntDir>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
     <IgnoreImportLibrary>false</IgnoreImportLibrary>
     <LinkIncremental>false</LinkIncremental>
     <LinkKeyFile>..\CefSharp.snk</LinkKeyFile>
@@ -87,16 +88,18 @@
     <CodeAnalysisRules />
     <CodeAnalysisRuleAssemblies />
     <TargetName>CefSharp.Core</TargetName>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <LinkIncremental>false</LinkIncremental>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules />
     <CodeAnalysisRuleAssemblies />
     <TargetName>CefSharp.Core</TargetName>
     <LinkKeyFile>..\CefSharp.snk</LinkKeyFile>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -105,6 +108,8 @@
     <CodeAnalysisRuleAssemblies />
     <TargetName>CefSharp.Core</TargetName>
     <LinkKeyFile>..\CefSharp.snk</LinkKeyFile>
+    <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -134,6 +139,7 @@
       <MapExports>false</MapExports>
       <KeyFile>$(LinkKeyFile)</KeyFile>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <DelayLoadDLLs>libcef.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <PreBuildEvent>
       <Command>$(SolutionDir)CefSharp.Prebuild\bin\CefSharp.Prebuild.exe "$(IncludePath)" "$(SolutionDir)packages\$(CefSdkVer)\CEF" "$(ProjectDir)handlers.txt" "$(ProjectDir)Safe" "$(CefSdkVer)"</Command>
@@ -231,12 +237,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp" />
+    <ClCompile Include="CookieManager.cpp" />
     <ClCompile Include="Internals\CefBrowserHostWrapper.cpp" />
     <ClCompile Include="Internals\CefContextMenuParamsWrapper.cpp" />
     <ClCompile Include="Internals\CefFrameWrapper.cpp" />
     <ClCompile Include="Internals\CefSharpBrowserWrapper.cpp" />
     <ClCompile Include="Internals\ClientAdapter.cpp" />
-    <ClCompile Include="Internals\CookieManager.cpp" />
     <ClCompile Include="Internals\CookieVisitor.cpp" />
     <ClCompile Include="Internals\CefRequestWrapper.cpp" />
     <ClCompile Include="Internals\JavascriptCallbackProxy.cpp" />
@@ -259,7 +265,12 @@
   <ItemGroup>
     <ClInclude Include="BrowserSettings.h" />
     <ClInclude Include="Cef.h" />
-    <ClInclude Include="Internals\CefGetGeolocationCallbackWrapper.h" />
+    <ClInclude Include="Internals\CefDeleteCookiesCallbackAdapter.h" />
+    <ClInclude Include="Internals\CefSetCookieCallbackAdapter.h" />
+    <ClInclude Include="Internals\CefCertificateCallbackWrapper.h" />
+    <ClInclude Include="CookieManager.h" />
+    <ClInclude Include="Internals\CefNavigationEntryVisitorAdapter.h" />
+    <ClInclude Include="Internals\CefGetGeolocationCallbackAdapter.h" />
     <ClInclude Include="Internals\CefAuthCallbackWrapper.h" />
     <ClInclude Include="Internals\CefBeforeDownloadCallbackWrapper.h" />
     <ClInclude Include="Internals\CefBrowserHostWrapper.h" />
@@ -274,6 +285,9 @@
     <ClInclude Include="Internals\CefPdfPrintCallbackWrapper.h" />
     <ClInclude Include="Internals\CefPostDataElementWrapper.h" />
     <ClInclude Include="Internals\CefPostDataWrapper.h" />
+    <ClInclude Include="Internals\CefRegisterCdmCallbackAdapter.h" />
+    <ClInclude Include="Internals\CefResolveCallbackAdapter.h" />
+    <ClInclude Include="Internals\CefResponseFilterAdapter.h" />
     <ClInclude Include="Internals\CefResponseWrapper.h" />
     <ClInclude Include="Internals\CefRunContextMenuCallbackWrapper.h" />
     <ClInclude Include="Internals\CefSharpBrowserWrapper.h" />
@@ -281,11 +295,12 @@
     <ClInclude Include="Internals\CefTaskScheduler.h" />
     <ClInclude Include="Internals\CefTaskWrapper.h" />
     <ClInclude Include="Internals\CefWrapper.h" />
+    <ClInclude Include="PopupFeatures.h" />
     <ClInclude Include="RequestContextHandler.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="WindowInfo.h" />
     <ClInclude Include="Internals\CefCompletionCallbackAdapter.h" />
     <ClInclude Include="Internals\ClientAdapter.h" />
-    <ClInclude Include="Internals\CookieManager.h" />
     <ClInclude Include="Internals\CookieVisitor.h" />
     <ClInclude Include="Internals\CefSharpApp.h" />
     <ClInclude Include="Internals\CefRequestWrapper.h" />
@@ -311,7 +326,6 @@
     <ClInclude Include="Internals\Serialization\JsObjectsSerialization.h" />
     <ClInclude Include="SchemeHandlerFactoryWrapper.h" />
     <ClInclude Include="ResourceHandlerWrapper.h" />
-    <ClInclude Include="CookieAsyncWrapper.h" />
     <ClInclude Include="Stdafx.h" />
     <ClInclude Include="Internals\StringUtils.h" />
     <ClInclude Include="vcclr_local.h" />
@@ -331,6 +345,10 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="handlers.txt" />
+  </ItemGroup>
+    </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

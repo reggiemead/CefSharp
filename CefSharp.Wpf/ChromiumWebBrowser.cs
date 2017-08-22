@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -7,7 +7,6 @@ using CefSharp.Wpf.Internals;
 using CefSharp.Wpf.Rendering;
 using Microsoft.Win32.SafeHandles;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -18,50 +17,234 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using CefSharp.ModelBinding;
+using System.Runtime.CompilerServices;
 
 namespace CefSharp.Wpf
 {
+    /// <summary>
+    /// ChromiumWebBrowser is the WPF web browser control
+    /// </summary>
+    /// <seealso cref="System.Windows.Controls.ContentControl" />
+    /// <seealso cref="CefSharp.Internals.IRenderWebBrowser" />
+    /// <seealso cref="CefSharp.Wpf.IWpfWebBrowser" />
     public class ChromiumWebBrowser : ContentControl, IRenderWebBrowser, IWpfWebBrowser
     {
-        private readonly List<IDisposable> disposables = new List<IDisposable>();
-
+        /// <summary>
+        /// The source
+        /// </summary>
         private HwndSource source;
+        /// <summary>
+        /// The source hook
+        /// </summary>
         private HwndSourceHook sourceHook;
+        /// <summary>
+        /// The tooltip timer
+        /// </summary>
         private DispatcherTimer tooltipTimer;
-        private readonly ToolTip toolTip;
+        /// <summary>
+        /// The tool tip
+        /// </summary>
+        private ToolTip toolTip;
+        /// <summary>
+        /// The managed cef browser adapter
+        /// </summary>
         private ManagedCefBrowserAdapter managedCefBrowserAdapter;
+        /// <summary>
+        /// The ignore URI change
+        /// </summary>
         private bool ignoreUriChange;
+        /// <summary>
+        /// The browser created
+        /// </summary>
         private bool browserCreated;
-        private volatile bool browserInitialized;
-        private Matrix matrix;
+        /// <summary>
+        /// The browser initialized - boolean represented as 0 (false) and 1(true) as we use Interlocker to increment/reset
+        /// </summary>
+        private int browserInitialized;
+        /// <summary>
+        /// The image that represents this browser instances
+        /// </summary>
         private Image image;
+        /// <summary>
+        /// The popup image
+        /// </summary>
         private Image popupImage;
+        /// <summary>
+        /// The popup
+        /// </summary>
         private Popup popup;
-        private volatile int disposeCount;
+        /// <summary>
+        /// The browser
+        /// </summary>
+        private IBrowser browser;
+        /// <summary>
+        /// The dispose count
+        /// </summary>
+        private int disposeCount;
+        /// <summary>
+        /// Location of the control on the screen, relative to Top/Left
+        /// Used to calculate GetScreenPoint
+        /// We're unable to call PointToScreen directly due to treading restrictions
+        /// and calling in a sync fashion on the UI thread was problematic.
+        /// </summary>
+        private Point browserScreenLocation;
 
+        /// <summary>
+        /// A flag that indicates whether or not the designer is active
+        /// NOTE: Needs to be static for OnApplicationExit
+        /// </summary>
+        private static bool designMode;
+
+        /// <summary>
+        /// Gets or sets the browser settings.
+        /// </summary>
+        /// <value>The browser settings.</value>
         public BrowserSettings BrowserSettings { get; set; }
+        /// <summary>
+        /// Gets or sets the request context.
+        /// </summary>
+        /// <value>The request context.</value>
         public RequestContext RequestContext { get; set; }
+        /// <summary>
+        /// Implement <see cref="IDialogHandler" /> and assign to handle dialog events.
+        /// </summary>
+        /// <value>The dialog handler.</value>
         public IDialogHandler DialogHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IJsDialogHandler" /> and assign to handle events related to JavaScript Dialogs.
+        /// </summary>
+        /// <value>The js dialog handler.</value>
         public IJsDialogHandler JsDialogHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IKeyboardHandler" /> and assign to handle events related to key press.
+        /// </summary>
+        /// <value>The keyboard handler.</value>
         public IKeyboardHandler KeyboardHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IRequestHandler" /> and assign to handle events related to browser requests.
+        /// </summary>
+        /// <value>The request handler.</value>
         public IRequestHandler RequestHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IDownloadHandler" /> and assign to handle events related to downloading files.
+        /// </summary>
+        /// <value>The download handler.</value>
         public IDownloadHandler DownloadHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="ILoadHandler" /> and assign to handle events related to browser load status.
+        /// </summary>
+        /// <value>The load handler.</value>
         public ILoadHandler LoadHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="ILifeSpanHandler" /> and assign to handle events related to popups.
+        /// </summary>
+        /// <value>The life span handler.</value>
         public ILifeSpanHandler LifeSpanHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IDisplayHandler" /> and assign to handle events related to browser display state.
+        /// </summary>
+        /// <value>The display handler.</value>
         public IDisplayHandler DisplayHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IContextMenuHandler" /> and assign to handle events related to the browser context menu
+        /// </summary>
+        /// <value>The menu handler.</value>
         public IContextMenuHandler MenuHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IFocusHandler" /> and assign to handle events related to the browser component's focus
+        /// </summary>
+        /// <value>The focus handler.</value>
         public IFocusHandler FocusHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IDragHandler" /> and assign to handle events related to dragging.
+        /// </summary>
+        /// <value>The drag handler.</value>
         public IDragHandler DragHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IResourceHandlerFactory" /> and control the loading of resources
+        /// </summary>
+        /// <value>The resource handler factory.</value>
         public IResourceHandlerFactory ResourceHandlerFactory { get; set; }
+        /// <summary>
+        /// Implement <see cref="IGeolocationHandler" /> and assign to handle requests for permission to use geolocation.
+        /// </summary>
+        /// <value>The geolocation handler.</value>
         public IGeolocationHandler GeolocationHandler { get; set; }
+        /// <summary>
+        /// Gets or sets the bitmap factory.
+        /// </summary>
+        /// <value>The bitmap factory.</value>
         public IBitmapFactory BitmapFactory { get; set; }
+        /// <summary>
+        /// Implement <see cref="IRenderProcessMessageHandler" /> and assign to handle messages from the render process.
+        /// </summary>
+        /// <value>The render process message handler.</value>
         public IRenderProcessMessageHandler RenderProcessMessageHandler { get; set; }
+        /// <summary>
+        /// Implement <see cref="IFindHandler" /> to handle events related to find results.
+        /// </summary>
+        /// <value>The find handler.</value>
+        public IFindHandler FindHandler { get; set; }
 
+        /// <summary>
+        /// Event handler for receiving Javascript console messages being sent from web pages.
+        /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
+        /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
+        /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
+        /// (The exception to this is when your running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
+        /// </summary>
         public event EventHandler<ConsoleMessageEventArgs> ConsoleMessage;
+
+        /// <summary>
+        /// Event handler for changes to the status message.
+        /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
+        /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang.
+        /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
+        /// (The exception to this is when your running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
+        /// </summary>
         public event EventHandler<StatusMessageEventArgs> StatusMessage;
+
+        /// <summary>
+        /// Event handler that will get called when the browser begins loading a frame. Multiple frames may be loading at the same
+        /// time. Sub-frames may start or continue loading after the main frame load has ended. This method may not be called for a
+        /// particular frame if the load request for that frame fails. For notification of overall browser load status use
+        /// OnLoadingStateChange instead.
+        /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
+        /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
+        /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
+        /// </summary>
+        /// <remarks>Whilst this may seem like a logical place to execute js, it's called before the DOM has been loaded, implement
+        /// <see cref="IRenderProcessMessageHandler.OnContextCreated" /> as it's called when the underlying V8Context is created
+        /// (Only called for the main frame at this stage)</remarks>
         public event EventHandler<FrameLoadStartEventArgs> FrameLoadStart;
+
+        /// <summary>
+        /// Event handler that will get called when the browser is done loading a frame. Multiple frames may be loading at the same
+        /// time. Sub-frames may start or continue loading after the main frame load has ended. This method will always be called
+        /// for all frames irrespective of whether the request completes successfully.
+        /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
+        /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
+        /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
+        /// </summary>
         public event EventHandler<FrameLoadEndEventArgs> FrameLoadEnd;
+
+        /// <summary>
+        /// Event handler that will get called when the resource load for a navigation fails or is canceled.
+        /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
+        /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
+        /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
+        /// </summary>
         public event EventHandler<LoadErrorEventArgs> LoadError;
+
+        /// <summary>
+        /// Event handler that will get called when the Loading state has changed.
+        /// This event will be fired twice. Once when loading is initiated either programmatically or
+        /// by user action, and once when loading is terminated due to completion, cancellation of failure.
+        /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
+        /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
+        /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
+        /// </summary>
         public event EventHandler<LoadingStateChangedEventArgs> LoadingStateChanged;
 
         /// <summary>
@@ -69,23 +252,107 @@ namespace CefSharp.Wpf
         /// </summary>
         public event EventHandler<RenderingEventArgs> Rendering;
 
+        /// <summary>
+        /// Navigates to the previous page in the browser history. Will automatically be enabled/disabled depending on the
+        /// browser state.
+        /// </summary>
+        /// <value>The back command.</value>
         public ICommand BackCommand { get; private set; }
+        /// <summary>
+        /// Navigates to the next page in the browser history. Will automatically be enabled/disabled depending on the
+        /// browser state.
+        /// </summary>
+        /// <value>The forward command.</value>
         public ICommand ForwardCommand { get; private set; }
+        /// <summary>
+        /// Reloads the content of the current page. Will automatically be enabled/disabled depending on the browser state.
+        /// </summary>
+        /// <value>The reload command.</value>
         public ICommand ReloadCommand { get; private set; }
+        /// <summary>
+        /// Prints the current browser contents.
+        /// </summary>
+        /// <value>The print command.</value>
         public ICommand PrintCommand { get; private set; }
+        /// <summary>
+        /// Increases the zoom level.
+        /// </summary>
+        /// <value>The zoom in command.</value>
         public ICommand ZoomInCommand { get; private set; }
+        /// <summary>
+        /// Decreases the zoom level.
+        /// </summary>
+        /// <value>The zoom out command.</value>
         public ICommand ZoomOutCommand { get; private set; }
+        /// <summary>
+        /// Resets the zoom level to the default. (100%)
+        /// </summary>
+        /// <value>The zoom reset command.</value>
         public ICommand ZoomResetCommand { get; private set; }
+        /// <summary>
+        /// Opens up a new program window (using the default text editor) where the source code of the currently displayed web
+        /// page is shown.
+        /// </summary>
+        /// <value>The view source command.</value>
         public ICommand ViewSourceCommand { get; private set; }
+        /// <summary>
+        /// Command which cleans up the Resources used by the ChromiumWebBrowser
+        /// </summary>
+        /// <value>The cleanup command.</value>
         public ICommand CleanupCommand { get; private set; }
+        /// <summary>
+        /// Stops loading the current page.
+        /// </summary>
+        /// <value>The stop command.</value>
         public ICommand StopCommand { get; private set; }
+        /// <summary>
+        /// Cut selected text to the clipboard.
+        /// </summary>
+        /// <value>The cut command.</value>
         public ICommand CutCommand { get; private set; }
+        /// <summary>
+        /// Copy selected text to the clipboard.
+        /// </summary>
+        /// <value>The copy command.</value>
         public ICommand CopyCommand { get; private set; }
+        /// <summary>
+        /// Paste text from the clipboard.
+        /// </summary>
+        /// <value>The paste command.</value>
         public ICommand PasteCommand { get; private set; }
+        /// <summary>
+        /// Select all text.
+        /// </summary>
+        /// <value>The select all command.</value>
         public ICommand SelectAllCommand { get; private set; }
+        /// <summary>
+        /// Undo last action.
+        /// </summary>
+        /// <value>The undo command.</value>
         public ICommand UndoCommand { get; private set; }
+        /// <summary>
+        /// Redo last action.
+        /// </summary>
+        /// <value>The redo command.</value>
         public ICommand RedoCommand { get; private set; }
 
+        /// <summary>
+        /// A flag that indicates if you can execute javascript in the main frame.
+        /// Flag is set to true in IRenderProcessMessageHandler.OnContextCreated.
+        /// and false in IRenderProcessMessageHandler.OnContextReleased
+        /// </summary>
+        public bool CanExecuteJavascriptInMainFrame { get; private set; }
+
+        /// <summary>
+        /// The dpi scale factor, if the browser has already been initialized
+        /// you must manually call IBrowserHost.NotifyScreenInfoChanged for the
+        /// browser to be notified of the change.
+        /// </summary>
+        public double DpiScaleFactor { get; set; }
+
+        /// <summary>
+        /// Initializes static members of the <see cref="ChromiumWebBrowser"/> class.
+        /// </summary>
         static ChromiumWebBrowser()
         {
             if (CefSharpSettings.ShutdownOnExit)
@@ -99,8 +366,29 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChromiumWebBrowser"/> class.
+        /// </summary>
+        /// <exception cref="System.InvalidOperationException">Cef::Initialize() failed</exception>
         public ChromiumWebBrowser()
         {
+            designMode = System.ComponentModel.DesignerProperties.GetIsInDesignMode(this);
+
+            if (!designMode)
+            {
+                NoInliningConstructor();
+            }
+        }
+
+        /// <summary>
+        /// Constructor logic has been moved into this method
+        /// Required for designer support - this method cannot be inlined as the designer
+        /// will attempt to load libcef.dll and will subsiquently throw an exception.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void NoInliningConstructor()
+        {
+            //Initialize CEF if it hasn't already been initialized
             if (!Cef.IsInitialized && !Cef.Initialize())
             {
                 throw new InvalidOperationException("Cef::Initialize() failed");
@@ -108,6 +396,9 @@ namespace CefSharp.Wpf
 
             BitmapFactory = new BitmapFactory();
 
+            //Add this ChromiumWebBrowser instance to a list of IDisposable objects
+            // that if still alive at the time Cef.Shutdown is called will be disposed of
+            // It's important all browser instances be freed before Cef.Shutdown is called.
             Cef.AddDisposable(this);
             Focusable = true;
             FocusVisualStyle = null;
@@ -116,6 +407,7 @@ namespace CefSharp.Wpf
             Dispatcher.BeginInvoke((Action)(() => WebBrowser = this));
 
             Loaded += OnLoaded;
+            SizeChanged += OnActualSizeChanged;
 
             GotKeyboardFocus += OnGotKeyboardFocus;
             LostKeyboardFocus += OnLostKeyboardFocus;
@@ -152,32 +444,48 @@ namespace CefSharp.Wpf
 
             managedCefBrowserAdapter = new ManagedCefBrowserAdapter(this, true);
 
-            disposables.Add(new DisposableEventWrapper(this, ActualHeightProperty, OnActualSizeChanged));
-            disposables.Add(new DisposableEventWrapper(this, ActualWidthProperty, OnActualSizeChanged));
-
             ResourceHandlerFactory = new DefaultResourceHandlerFactory();
             BrowserSettings = new BrowserSettings();
 
             PresentationSource.AddSourceChangedHandler(this, PresentationSourceChangedHandler);
 
-            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.NearestNeighbor);
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
         }
 
+        /// <summary>
+        /// Finalizes an instance of the <see cref="ChromiumWebBrowser"/> class.
+        /// </summary>
         ~ChromiumWebBrowser()
         {
-            Dispose(false);
+            if (!designMode)
+            {
+                Dispose(false);
+            }
         }
 
+        /// <summary>
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        /// </summary>
         public void Dispose()
         {
-            Dispose(true);
+            if (!designMode)
+            {
+                Dispose(true);
+            }
+
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool isdisposing)
+        /// <summary>
+        /// Releases unmanaged and - optionally - managed resources.
+        /// </summary>
+        /// <param name="isDisposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        // This method cannot be inlined as the designer will attempt to load libcef.dll and will subsiquently throw an exception.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        protected virtual void Dispose(bool isDisposing)
         {
-            //Check if alreadty disposed
-            if (Interlocked.Increment(ref disposeCount) == 1)
+            //If disposeCount is 0 then we'll update it to 1 and begin disposing
+            if (Interlocked.CompareExchange(ref disposeCount, 1, 0) == 0)
             { 
                 // No longer reference event listeners:
                 ConsoleMessage = null;
@@ -187,11 +495,9 @@ namespace CefSharp.Wpf
                 LoadingStateChanged = null;
                 Rendering = null;
 
-                // No longer reference handlers:
-                this.SetHandlersToNull();
-
-                if (isdisposing)
+                if (isDisposing)
                 {
+                    browser = null;
                     if (BrowserSettings != null)
                     {
                         BrowserSettings.Dispose();
@@ -202,6 +508,7 @@ namespace CefSharp.Wpf
 
                     // Release internal event listeners:
                     Loaded -= OnLoaded;
+                    SizeChanged -= OnActualSizeChanged;
                     GotKeyboardFocus -= OnGotKeyboardFocus;
                     LostKeyboardFocus -= OnLostKeyboardFocus;
 
@@ -213,9 +520,18 @@ namespace CefSharp.Wpf
 
                     IsVisibleChanged -= OnIsVisibleChanged;
 
+                    if(popup != null)
+                    { 
+                        popup.Opened -= PopupOpened;
+                        popup.Closed -= PopupClosed;
+                        popup = null;
+                    }
+
                     if (tooltipTimer != null)
                     {
                         tooltipTimer.Tick -= OnTooltipTimerTick;
+                        tooltipTimer.Stop();
+                        tooltipTimer = null;
                     }
 
                     if (CleanupElement != null)
@@ -229,13 +545,18 @@ namespace CefSharp.Wpf
                         managedCefBrowserAdapter = null;
                     }
 
-                    foreach (var disposable in disposables)
+                    Interlocked.Exchange(ref browserInitialized, 0);
+                    UiThreadRunAsync(() =>
                     {
-                        disposable.Dispose();
-                    }
-                    disposables.Clear();
-                    UiThreadRunAsync(() => WebBrowser = null);
+                        SetCurrentValue(IsBrowserInitializedProperty, false);
+                        WebBrowser = null;
+                    });
                 }
+
+                // Release reference to handlers, make sure this is done after we dispose managedCefBrowserAdapter
+                // otherwise the ILifeSpanHandler.DoClose will not be invoked. (More important in the WinForms version,
+                // we do it here for consistency)
+                this.SetHandlersToNull();
 
                 Cef.RemoveDisposable(this);
 
@@ -243,36 +564,103 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Gets the ScreenInfo - currently used to get the DPI scale factor.
+        /// </summary>
+        /// <returns>ScreenInfo containing the current DPI scale factor</returns>
         ScreenInfo IRenderWebBrowser.GetScreenInfo()
         {
-            var screenInfo = new ScreenInfo
-            {
-                ScaleFactor = (float)matrix.M11
-            };
+            return GetScreenInfo();
+        }
+
+        /// <summary>
+        /// Gets the ScreenInfo - currently used to get the DPI scale factor.
+        /// </summary>
+        /// <returns>ScreenInfo containing the current DPI scale factor</returns>
+        protected virtual ScreenInfo GetScreenInfo()
+        {
+            var screenInfo = new ScreenInfo(scaleFactor: (float)DpiScaleFactor);
 
             return screenInfo;
         }
 
+        /// <summary>
+        /// Gets the view rect (width, height)
+        /// </summary>
+        /// <returns>ViewRect.</returns>
         ViewRect IRenderWebBrowser.GetViewRect()
         {
-            var viewRect = new ViewRect
-            {
-                Width = (int)ActualWidth,
-                Height = (int)ActualHeight
-            };
+            return GetViewRect();
+        }
+
+        /// <summary>
+        /// Gets the view rect (width, height)
+        /// </summary>
+        /// <returns>ViewRect.</returns>
+        protected virtual ViewRect GetViewRect()
+        {
+            var viewRect = new ViewRect((int)Math.Ceiling(ActualWidth), (int)Math.Ceiling(ActualHeight));
 
             return viewRect;
         }
 
+        bool IRenderWebBrowser.GetScreenPoint(int viewX, int viewY, out int screenX, out int screenY)
+        {
+            screenX = 0;
+            screenY = 0;
+
+            //We manually claculate the screen point as calling PointToScreen can only be called on the UI thread
+            // in a sync fashion and it's easy for users to get themselves into a deadlock.
+            if(DpiScaleFactor > 1)
+            { 
+                screenX = (int)(browserScreenLocation.X + (viewX * DpiScaleFactor));
+                screenY = (int)(browserScreenLocation.Y + (viewY * DpiScaleFactor));
+            }
+            else
+            {
+                screenX = (int)(browserScreenLocation.X + viewX);
+                screenY = (int)(browserScreenLocation.Y + viewY);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Creates the BitmapInfo instance used for rendering. Two instances
+        /// will be created, one will be used for the popup
+        /// </summary>
+        /// <param name="isPopup">if set to <c>true</c> [is popup].</param>
+        /// <returns>BitmapInfo.</returns>
+        /// <exception cref="System.Exception">BitmapFactory cannot be null</exception>
         BitmapInfo IRenderWebBrowser.CreateBitmapInfo(bool isPopup)
+        {
+            return CreateBitmapInfo(isPopup);
+        }
+
+        /// <summary>
+        /// Creates the BitmapInfo instance used for rendering. Two instances
+        /// will be created, one will be used for the popup
+        /// </summary>
+        /// <param name="isPopup">if set to <c>true</c> [is popup].</param>
+        /// <returns>BitmapInfo.</returns>
+        /// <exception cref="System.Exception">BitmapFactory cannot be null</exception>
+        protected virtual BitmapInfo CreateBitmapInfo(bool isPopup)
         {
             if (BitmapFactory == null)
             {
                 throw new Exception("BitmapFactory cannot be null");
             }
-            return BitmapFactory.CreateBitmap(isPopup, matrix.M11);
+            return BitmapFactory.CreateBitmap(isPopup, DpiScaleFactor);
         }
 
+        /// <summary>
+        /// Starts the dragging.
+        /// </summary>
+        /// <param name="dragData">The drag data.</param>
+        /// <param name="mask">The mask.</param>
+        /// <param name="x">The x.</param>
+        /// <param name="y">The y.</param>
+        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise.</returns>
         bool IRenderWebBrowser.StartDragging(IDragData dragData, DragOperationsMask mask, int x, int y)
         {
             var dataObject = new DataObject();
@@ -294,15 +682,46 @@ namespace CefSharp.Wpf
 
             UiThreadRunAsync(delegate
             {
-                var results = DragDrop.DoDragDrop(this, dataObject, GetDragEffects(mask));
-                managedCefBrowserAdapter.OnDragSourceEndedAt(0, 0, GetDragOperationsMask(results));
-                managedCefBrowserAdapter.OnDragSourceSystemDragEnded();
+                if(browser != null)
+                { 
+                    var results = DragDrop.DoDragDrop(this, dataObject, GetDragEffects(mask));
+                    browser.GetHost().DragSourceEndedAt(0, 0, GetDragOperationsMask(results));
+                    browser.GetHost().DragSourceSystemDragEnded();
+                }
             });
 
             return true;
         }
 
-        void IRenderWebBrowser.InvokeRenderAsync(BitmapInfo bitmapInfo)
+        void IRenderWebBrowser.UpdateDragCursor(DragOperationsMask operation)
+        {
+            //TODO: Someone should implement this
+        }
+
+        /// <summary>
+        /// Called when an element should be painted.
+        /// Pixel values passed to this method are scaled relative to view coordinates based on the value of
+        /// ScreenInfo.DeviceScaleFactor returned from GetScreenInfo. bitmapInfo.IsPopup indicates whether the element is the view
+        /// or the popup widget. BitmapInfo.DirtyRect contains the set of rectangles in pixel coordinates that need to be
+        /// repainted. The bitmap will be will be  width * height *4 bytes in size and represents a BGRA image with an upper-left origin.
+        /// The underlying buffer is copied into the back buffer and is accessible via BackBufferHandle
+        /// </summary>
+        /// <param name="bitmapInfo">information about the bitmap to be rendered</param>
+        void IRenderWebBrowser.OnPaint(BitmapInfo bitmapInfo)
+        {
+            OnPaint(bitmapInfo);
+        }
+
+        /// <summary>
+        /// Called when an element should be painted.
+        /// Pixel values passed to this method are scaled relative to view coordinates based on the value of
+        /// ScreenInfo.DeviceScaleFactor returned from GetScreenInfo. bitmapInfo.IsPopup indicates whether the element is the view
+        /// or the popup widget. BitmapInfo.DirtyRect contains the set of rectangles in pixel coordinates that need to be
+        /// repainted. The bitmap will be will be  width * height *4 bytes in size and represents a BGRA image with an upper-left origin.
+        /// The underlying buffer is copied into the back buffer and is accessible via BackBufferHandle
+        /// </summary>
+        /// <param name="bitmapInfo">information about the bitmap to be rendered</param>
+        protected virtual void OnPaint(BitmapInfo bitmapInfo)
         {
             UiThreadRunAsync(delegate
             {
@@ -329,24 +748,65 @@ namespace CefSharp.Wpf
             DispatcherPriority.Render);
         }
 
+        /// <summary>
+        /// Sets the popup size and position.
+        /// </summary>
+        /// <param name="width">The width.</param>
+        /// <param name="height">The height.</param>
+        /// <param name="x">The x.</param>
+        /// <param name="y">The y.</param>
         void IRenderWebBrowser.SetPopupSizeAndPosition(int width, int height, int x, int y)
         {
             UiThreadRunAsync(() => SetPopupSizeAndPositionImpl(width, height, x, y));
         }
 
+        /// <summary>
+        /// Sets the popup is open.
+        /// </summary>
+        /// <param name="isOpen">if set to <c>true</c> [is open].</param>
         void IRenderWebBrowser.SetPopupIsOpen(bool isOpen)
         {
             UiThreadRunAsync(() => { popup.IsOpen = isOpen; });
         }
 
-        void IRenderWebBrowser.SetCursor(IntPtr handle, CefCursorType type)
+        /// <summary>
+        /// Sets the cursor.
+        /// </summary>
+        /// <param name="handle">The handle.</param>
+        /// <param name="type">The type.</param>
+        void IRenderWebBrowser.SetCursor(IntPtr handle, CursorType type)
         {
-            UiThreadRunAsync(() =>
+            //Custom cursors are handled differently, for now keep standard ones executing
+            //in an async fashion
+            if (type == CursorType.Custom)
             {
-                Cursor = CursorInteropHelper.Create(new SafeFileHandle(handle, ownsHandle: false));
-            });
+                //When using a custom it appears we need to update the cursor in a sync fashion
+                //Likely the underlying handle/buffer is being released before the cursor
+                // is created when executed in an async fashion. Doesn't seem to be a problem
+                //for build in cursor types
+                UiThreadRunSync(() =>
+                {
+                    Cursor = CursorInteropHelper.Create(new SafeFileHandle(handle, ownsHandle: false));
+                });
+            }
+            else
+            {
+                UiThreadRunAsync(() =>
+                {
+                    Cursor = CursorInteropHelper.Create(new SafeFileHandle(handle, ownsHandle: false));
+                });
+            }            
         }
 
+        void IRenderWebBrowser.OnImeCompositionRangeChanged(Range selectedRange, Rect[] characterBounds)
+        {
+            //TODO: Implement this
+        }
+
+        /// <summary>
+        /// Sets the address.
+        /// </summary>
+        /// <param name="args">The <see cref="AddressChangedEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.SetAddress(AddressChangedEventArgs args)
         {
             UiThreadRunAsync(() =>
@@ -360,6 +820,10 @@ namespace CefSharp.Wpf
             });
         }
 
+        /// <summary>
+        /// Sets the loading state change.
+        /// </summary>
+        /// <param name="args">The <see cref="LoadingStateChangedEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.SetLoadingStateChange(LoadingStateChangedEventArgs args)
         {
             UiThreadRunAsync(() =>
@@ -380,16 +844,28 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Sets the title.
+        /// </summary>
+        /// <param name="args">The <see cref="TitleChangedEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.SetTitle(TitleChangedEventArgs args)
         {
             UiThreadRunAsync(() => SetCurrentValue(TitleProperty, args.Title));
         }
 
+        /// <summary>
+        /// Sets the tooltip text.
+        /// </summary>
+        /// <param name="tooltipText">The tooltip text.</param>
         void IWebBrowserInternal.SetTooltipText(string tooltipText)
         {
             UiThreadRunAsync(() => SetCurrentValue(TooltipTextProperty, tooltipText));
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:FrameLoadStart" /> event.
+        /// </summary>
+        /// <param name="args">The <see cref="FrameLoadStartEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.OnFrameLoadStart(FrameLoadStartEventArgs args)
         {
             var handler = FrameLoadStart;
@@ -399,6 +875,10 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:FrameLoadEnd" /> event.
+        /// </summary>
+        /// <param name="args">The <see cref="FrameLoadEndEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.OnFrameLoadEnd(FrameLoadEndEventArgs args)
         {
             var handler = FrameLoadEnd;
@@ -409,6 +889,10 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:ConsoleMessage" /> event.
+        /// </summary>
+        /// <param name="args">The <see cref="ConsoleMessageEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.OnConsoleMessage(ConsoleMessageEventArgs args)
         {
             var handler = ConsoleMessage;
@@ -418,6 +902,10 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:StatusMessage" /> event.
+        /// </summary>
+        /// <param name="args">The <see cref="StatusMessageEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.OnStatusMessage(StatusMessageEventArgs args)
         {
             var handler = StatusMessage;
@@ -427,6 +915,10 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:LoadError" /> event.
+        /// </summary>
+        /// <param name="args">The <see cref="LoadErrorEventArgs"/> instance containing the event data.</param>
         void IWebBrowserInternal.OnLoadError(LoadErrorEventArgs args)
         {
             var handler = LoadError;
@@ -436,21 +928,34 @@ namespace CefSharp.Wpf
             }
         }
 
+        void IWebBrowserInternal.SetCanExecuteJavascriptOnMainFrame(bool canExecute)
+        {
+            CanExecuteJavascriptInMainFrame = canExecute;
+        }
+
+        /// <summary>
+        /// Gets the browser adapter.
+        /// </summary>
+        /// <value>The browser adapter.</value>
         IBrowserAdapter IWebBrowserInternal.BrowserAdapter
         {
             get { return managedCefBrowserAdapter; }
         }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance has parent.
+        /// </summary>
+        /// <value><c>true</c> if this instance has parent; otherwise, <c>false</c>.</value>
         bool IWebBrowserInternal.HasParent { get; set; }
 
-        IntPtr IWebBrowserInternal.ControlHandle
+        /// <summary>
+        /// Called when [after browser created].
+        /// </summary>
+        /// <param name="browser">The browser.</param>
+        void IWebBrowserInternal.OnAfterBrowserCreated(IBrowser browser)
         {
-            get { return source == null ? IntPtr.Zero : source.Handle; }
-        }
-
-        void IWebBrowserInternal.OnAfterBrowserCreated()
-        {
-            browserInitialized = true;
+            Interlocked.Exchange(ref browserInitialized, 1);
+            this.browser = browser;
 
             UiThreadRunAsync(() =>
             {
@@ -469,38 +974,71 @@ namespace CefSharp.Wpf
 
         #region CanGoBack dependency property
 
+        /// <summary>
+        /// A flag that indicates whether the state of the control current supports the GoBack action (true) or not (false).
+        /// </summary>
+        /// <value><c>true</c> if this instance can go back; otherwise, <c>false</c>.</value>
+        /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
+        /// binding.</remarks>
         public bool CanGoBack
         {
             get { return (bool)GetValue(CanGoBackProperty); }
         }
 
+        /// <summary>
+        /// The can go back property
+        /// </summary>
         public static DependencyProperty CanGoBackProperty = DependencyProperty.Register("CanGoBack", typeof(bool), typeof(ChromiumWebBrowser));
 
         #endregion
 
         #region CanGoForward dependency property
 
+        /// <summary>
+        /// A flag that indicates whether the state of the control currently supports the GoForward action (true) or not (false).
+        /// </summary>
+        /// <value><c>true</c> if this instance can go forward; otherwise, <c>false</c>.</value>
+        /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
+        /// binding.</remarks>
         public bool CanGoForward
         {
             get { return (bool)GetValue(CanGoForwardProperty); }
         }
 
+        /// <summary>
+        /// The can go forward property
+        /// </summary>
         public static DependencyProperty CanGoForwardProperty = DependencyProperty.Register("CanGoForward", typeof(bool), typeof(ChromiumWebBrowser));
 
         #endregion
 
         #region Address dependency property
 
+        /// <summary>
+        /// The address (URL) which the browser control is currently displaying.
+        /// Will automatically be updated as the user navigates to another page (e.g. by clicking on a link).
+        /// </summary>
+        /// <value>The address.</value>
+        /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
+        /// binding.</remarks>
         public string Address
         {
             get { return (string)GetValue(AddressProperty); }
             set { SetValue(AddressProperty, value); }
         }
 
+        /// <summary>
+        /// The address property
+        /// </summary>
         public static readonly DependencyProperty AddressProperty =
             DependencyProperty.Register("Address", typeof(string), typeof(ChromiumWebBrowser),
                                         new UIPropertyMetadata(null, OnAddressChanged));
 
+        /// <summary>
+        /// Handles the <see cref="E:AddressChanged" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="args">The <see cref="DependencyPropertyChangedEventArgs"/> instance containing the event data.</param>
         private static void OnAddressChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
         {
             var owner = (ChromiumWebBrowser)sender;
@@ -510,9 +1048,14 @@ namespace CefSharp.Wpf
             owner.OnAddressChanged(oldValue, newValue);
         }
 
+        /// <summary>
+        /// Called when [address changed].
+        /// </summary>
+        /// <param name="oldValue">The old value.</param>
+        /// <param name="newValue">The new value.</param>
         protected virtual void OnAddressChanged(string oldValue, string newValue)
         {
-            if (ignoreUriChange || newValue == null || !browserInitialized)
+            if (ignoreUriChange || newValue == null || !InternalIsBrowserInitialized())
             {
                 return;
             }
@@ -524,11 +1067,20 @@ namespace CefSharp.Wpf
 
         #region IsLoading dependency property
 
+        /// <summary>
+        /// A flag that indicates whether the control is currently loading one or more web pages (true) or not (false).
+        /// </summary>
+        /// <value><c>true</c> if this instance is loading; otherwise, <c>false</c>.</value>
+        /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
+        /// binding.</remarks>
         public bool IsLoading
         {
             get { return (bool)GetValue(IsLoadingProperty); }
         }
 
+        /// <summary>
+        /// The is loading property
+        /// </summary>
         public static readonly DependencyProperty IsLoadingProperty =
             DependencyProperty.Register("IsLoading", typeof(bool), typeof(ChromiumWebBrowser), new PropertyMetadata(false));
 
@@ -536,16 +1088,33 @@ namespace CefSharp.Wpf
 
         #region IsBrowserInitialized dependency property
 
+        /// <summary>
+        /// A flag that indicates whether the WebBrowser is initialized (true) or not (false).
+        /// </summary>
+        /// <value><c>true</c> if this instance is browser initialized; otherwise, <c>false</c>.</value>
+        /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
+        /// binding.</remarks>
         public bool IsBrowserInitialized
         {
             get { return (bool)GetValue(IsBrowserInitializedProperty); }
         }
 
+        /// <summary>
+        /// The is browser initialized property
+        /// </summary>
         public static readonly DependencyProperty IsBrowserInitializedProperty =
             DependencyProperty.Register("IsBrowserInitialized", typeof(bool), typeof(ChromiumWebBrowser), new PropertyMetadata(false, OnIsBrowserInitializedChanged));
 
+        /// <summary>
+        /// Event handler that will get called when the browser has finished initializing
+        /// </summary>
         public event DependencyPropertyChangedEventHandler IsBrowserInitializedChanged;
 
+        /// <summary>
+        /// Handles the <see cref="E:IsBrowserInitializedChanged" /> event.
+        /// </summary>
+        /// <param name="d">The d.</param>
+        /// <param name="e">The <see cref="DependencyPropertyChangedEventArgs"/> instance containing the event data.</param>
         private static void OnIsBrowserInitializedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var owner = (ChromiumWebBrowser)d;
@@ -562,14 +1131,19 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Called when [is browser initialized changed].
+        /// </summary>
+        /// <param name="oldValue">if set to <c>true</c> [old value].</param>
+        /// <param name="newValue">if set to <c>true</c> [new value].</param>
         protected virtual void OnIsBrowserInitializedChanged(bool oldValue, bool newValue)
         {
-            if (!IsDisposed)
+            if (newValue && !IsDisposed)
             { 
                 var task = this.GetZoomLevelAsync();
                 task.ContinueWith(previous =>
                 {
-                    if (previous.IsCompleted)
+                    if (previous.Status == TaskStatus.RanToCompletion)
                     {
                         UiThreadRunAsync(() => 
                         {
@@ -591,17 +1165,33 @@ namespace CefSharp.Wpf
 
         #region Title dependency property
 
+        /// <summary>
+        /// The title of the web page being currently displayed.
+        /// </summary>
+        /// <value>The title.</value>
+        /// <remarks>This property is implemented as a Dependency Property and fully supports data binding.</remarks>
         public string Title
         {
             get { return (string)GetValue(TitleProperty); }
             set { SetValue(TitleProperty, value); }
         }
 
+        /// <summary>
+        /// The title property
+        /// </summary>
         public static readonly DependencyProperty TitleProperty =
             DependencyProperty.Register("Title", typeof(string), typeof(ChromiumWebBrowser), new PropertyMetadata(null, OnTitleChanged));
 
+        /// <summary>
+        /// Event handler that will get called when the browser title changes
+        /// </summary>
         public event DependencyPropertyChangedEventHandler TitleChanged;
 
+        /// <summary>
+        /// Handles the <see cref="E:TitleChanged" /> event.
+        /// </summary>
+        /// <param name="d">The d.</param>
+        /// <param name="e">The <see cref="DependencyPropertyChangedEventArgs"/> instance containing the event data.</param>
         private static void OnTitleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var owner = (ChromiumWebBrowser)d;
@@ -618,16 +1208,29 @@ namespace CefSharp.Wpf
 
         #region ZoomLevel dependency property
 
+        /// <summary>
+        /// The zoom level at which the browser control is currently displaying.
+        /// Can be set to 0 to clear the zoom level (resets to default zoom level).
+        /// </summary>
+        /// <value>The zoom level.</value>
         public double ZoomLevel
         {
             get { return (double)GetValue(ZoomLevelProperty); }
             set { SetValue(ZoomLevelProperty, value); }
         }
 
+        /// <summary>
+        /// The zoom level property
+        /// </summary>
         public static readonly DependencyProperty ZoomLevelProperty =
             DependencyProperty.Register("ZoomLevel", typeof(double), typeof(ChromiumWebBrowser),
                                         new UIPropertyMetadata(0d, OnZoomLevelChanged));
 
+        /// <summary>
+        /// Handles the <see cref="E:ZoomLevelChanged" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="args">The <see cref="DependencyPropertyChangedEventArgs"/> instance containing the event data.</param>
         private static void OnZoomLevelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
         {
             var owner = (ChromiumWebBrowser)sender;
@@ -637,6 +1240,11 @@ namespace CefSharp.Wpf
             owner.OnZoomLevelChanged(oldValue, newValue);
         }
 
+        /// <summary>
+        /// Called when [zoom level changed].
+        /// </summary>
+        /// <param name="oldValue">The old value.</param>
+        /// <param name="newValue">The new value.</param>
         protected virtual void OnZoomLevelChanged(double oldValue, double newValue)
         {
             this.SetZoomLevel(newValue);
@@ -650,12 +1258,16 @@ namespace CefSharp.Wpf
         /// Specifies the amount used to increase/decrease to ZoomLevel by
         /// By Default this value is 0.10
         /// </summary>
+        /// <value>The zoom level increment.</value>
         public double ZoomLevelIncrement
         {
             get { return (double)GetValue(ZoomLevelIncrementProperty); }
             set { SetValue(ZoomLevelIncrementProperty, value); }
         }
 
+        /// <summary>
+        /// The zoom level increment property
+        /// </summary>
         public static readonly DependencyProperty ZoomLevelIncrementProperty =
             DependencyProperty.Register("ZoomLevelIncrement", typeof(double), typeof(ChromiumWebBrowser), new PropertyMetadata(0.10));
 
@@ -664,24 +1276,30 @@ namespace CefSharp.Wpf
         #region CleanupElement dependency property
 
         /// <summary>
-        /// The CleanupElement Controls when the BrowserResources will be cleand up.
+        /// The CleanupElement Controls when the BrowserResources will be cleaned up.
         /// The ChromiumWebBrowser will register on Unloaded of the provided Element and dispose all resources when that handler is called.
         /// By default the cleanup element is the Window that contains the ChromiumWebBrowser.
         /// if you want cleanup to happen earlier provide another FrameworkElement.
         /// Be aware that this Control is not usable anymore after cleanup is done.
         /// </summary>
-        /// <value>
-        /// The cleanup element.
-        /// </value>
+        /// <value>The cleanup element.</value>
         public FrameworkElement CleanupElement
         {
             get { return (FrameworkElement)GetValue(CleanupElementProperty); }
             set { SetValue(CleanupElementProperty, value); }
         }
 
+        /// <summary>
+        /// The cleanup element property
+        /// </summary>
         public static readonly DependencyProperty CleanupElementProperty =
             DependencyProperty.Register("CleanupElement", typeof(FrameworkElement), typeof(ChromiumWebBrowser), new PropertyMetadata(null, OnCleanupElementChanged));
 
+        /// <summary>
+        /// Handles the <see cref="E:CleanupElementChanged" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="args">The <see cref="DependencyPropertyChangedEventArgs"/> instance containing the event data.</param>
         private static void OnCleanupElementChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
         {
             var owner = (ChromiumWebBrowser)sender;
@@ -691,6 +1309,11 @@ namespace CefSharp.Wpf
             owner.OnCleanupElementChanged(oldValue, newValue);
         }
 
+        /// <summary>
+        /// Called when [cleanup element changed].
+        /// </summary>
+        /// <param name="oldValue">The old value.</param>
+        /// <param name="newValue">The new value.</param>
         protected virtual void OnCleanupElementChanged(FrameworkElement oldValue, FrameworkElement newValue)
         {
             if (oldValue != null)
@@ -705,6 +1328,11 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:CleanupElementUnloaded" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void OnCleanupElementUnloaded(object sender, RoutedEventArgs e)
         {
             Dispose();
@@ -714,14 +1342,24 @@ namespace CefSharp.Wpf
 
         #region TooltipText dependency property
 
+        /// <summary>
+        /// The text that will be displayed as a ToolTip
+        /// </summary>
+        /// <value>The tooltip text.</value>
         public string TooltipText
         {
             get { return (string)GetValue(TooltipTextProperty); }
         }
 
+        /// <summary>
+        /// The tooltip text property
+        /// </summary>
         public static readonly DependencyProperty TooltipTextProperty =
             DependencyProperty.Register("TooltipText", typeof(string), typeof(ChromiumWebBrowser), new PropertyMetadata(null, (sender, e) => ((ChromiumWebBrowser)sender).OnTooltipTextChanged()));
 
+        /// <summary>
+        /// Called when [tooltip text changed].
+        /// </summary>
         private void OnTooltipTextChanged()
         {
             var timer = tooltipTimer;
@@ -730,13 +1368,16 @@ namespace CefSharp.Wpf
                 return;
             }
 
-            timer.Stop();
-
-            if (String.IsNullOrEmpty(TooltipText))
+            if (string.IsNullOrEmpty(TooltipText))
             {
                 UiThreadRunAsync(() => UpdateTooltip(null), DispatcherPriority.Render);
+
+                if(timer.IsEnabled)
+                {
+                    timer.Stop();
+                }
             }
-            else
+            else if(!timer.IsEnabled)
             {
                 timer.Start();
             }
@@ -746,40 +1387,82 @@ namespace CefSharp.Wpf
 
         #region WebBrowser dependency property
 
+        /// <summary>
+        /// Gets or sets the WebBrowser.
+        /// </summary>
+        /// <value>The WebBrowser.</value>
         public IWebBrowser WebBrowser
         {
             get { return (IWebBrowser)GetValue(WebBrowserProperty); }
             set { SetValue(WebBrowserProperty, value); }
         }
 
+        /// <summary>
+        /// The WebBrowser property
+        /// </summary>
         public static readonly DependencyProperty WebBrowserProperty =
             DependencyProperty.Register("WebBrowser", typeof(IWebBrowser), typeof(ChromiumWebBrowser), new UIPropertyMetadata(defaultValue: null));
 
         #endregion WebBrowser dependency property
 
+        /// <summary>
+        /// Handles the <see cref="E:Drop" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="DragEventArgs"/> instance containing the event data.</param>
         private void OnDrop(object sender, DragEventArgs e)
         {
-            managedCefBrowserAdapter.OnDragTargetDragDrop(GetMouseEvent(e));
+            if(browser != null)
+            {
+                browser.GetHost().DragTargetDragDrop(GetMouseEvent(e));
+            }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:DragLeave" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="DragEventArgs"/> instance containing the event data.</param>
         private void OnDragLeave(object sender, DragEventArgs e)
         {
-            managedCefBrowserAdapter.OnDragTargetDragLeave();
+            if(browser != null)
+            {
+                browser.GetHost().DragTargetDragLeave();
+            }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:DragOver" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="DragEventArgs"/> instance containing the event data.</param>
         private void OnDragOver(object sender, DragEventArgs e)
         {
-            managedCefBrowserAdapter.OnDragTargetDragOver(GetMouseEvent(e), GetDragOperationsMask(e.AllowedEffects));
+            if(browser != null)
+            {
+                browser.GetHost().DragTargetDragOver(GetMouseEvent(e), GetDragOperationsMask(e.AllowedEffects));
+            }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:DragEnter" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="DragEventArgs"/> instance containing the event data.</param>
         private void OnDragEnter(object sender, DragEventArgs e)
         {
-            managedCefBrowserAdapter.OnDragTargetDragEnter(e.GetDragDataWrapper(), GetMouseEvent(e), GetDragOperationsMask(e.AllowedEffects));
+            if(browser != null)
+            {
+                browser.GetHost().DragTargetDragEnter(e.GetDragDataWrapper(), GetMouseEvent(e), GetDragOperationsMask(e.AllowedEffects));
+            }
         }
 
         /// <summary>
         /// Converts .NET drag drop effects to CEF Drag Operations
-        /// </summary>s
+        /// </summary>
+        /// <param name="dragDropEffects">The drag drop effects.</param>
+        /// <returns>DragOperationsMask.</returns>
+        /// s
         private static DragOperationsMask GetDragOperationsMask(DragDropEffects dragDropEffects)
         {
             var operations = DragOperationsMask.None;
@@ -804,6 +1487,11 @@ namespace CefSharp.Wpf
             return operations;
         }
 
+        /// <summary>
+        /// Gets the drag effects.
+        /// </summary>
+        /// <param name="mask">The mask.</param>
+        /// <returns>DragDropEffects.</returns>
         private static DragDropEffects GetDragEffects(DragOperationsMask mask)
         {
             if ((mask & DragOperationsMask.Every) == DragOperationsMask.Every)
@@ -825,6 +1513,11 @@ namespace CefSharp.Wpf
             return DragDropEffects.None;
         }
 
+        /// <summary>
+        /// PresentationSource changed handler.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="args">The <see cref="SourceChangedEventArgs"/> instance containing the event data.</param>
         private void PresentationSourceChangedHandler(object sender, SourceChangedEventArgs args)
         {
             if (args.NewSource != null)
@@ -835,28 +1528,85 @@ namespace CefSharp.Wpf
 
                 if (source != null)
                 {
-                    var notifyDpiChanged = !matrix.Equals(source.CompositionTarget.TransformToDevice);
+                    var matrix = source.CompositionTarget.TransformToDevice;
+                    var notifyDpiChanged = DpiScaleFactor > 0 && !DpiScaleFactor.Equals(matrix.M11);
 
-                    matrix = source.CompositionTarget.TransformToDevice;
+                    DpiScaleFactor = source.CompositionTarget.TransformToDevice.M11;
                     sourceHook = SourceHook;
                     source.AddHook(sourceHook);
 
-                    if (notifyDpiChanged)
+                    if (notifyDpiChanged && browser != null)
                     {
-                        var browser = GetBrowser();
-                        if(browser != null)
-                        {
-                            browser.GetHost().NotifyScreenInfoChanged();
-                        }
+                        browser.GetHost().NotifyScreenInfoChanged();
                     }
+
+                    var window = source.RootVisual as Window;
+                    if(window != null)
+                    {
+                        window.StateChanged += WindowStateChanged;
+                        window.LocationChanged += OnWindowLocationChanged;
+                    }
+
+                    updateBrowserScreenLocation();
                 }
             }
             else if (args.OldSource != null)
             {
                 RemoveSourceHook();
+
+                var window = args.OldSource.RootVisual as Window;
+                if (window != null)
+                {
+                    window.StateChanged -= WindowStateChanged;
+                    window.LocationChanged -= OnWindowLocationChanged;
+                }
             }
         }
 
+        private void WindowStateChanged(object sender, EventArgs e)
+        {
+            var window = (Window)sender;
+
+            switch (window.WindowState)
+            {
+                case WindowState.Normal:
+                case WindowState.Maximized:
+                {
+                    if (browser != null)
+                    {
+                        browser.GetHost().WasHidden(false);
+                    }
+                    break;
+                }
+                case WindowState.Minimized:
+                {
+                    if (browser != null)
+                    {
+                        browser.GetHost().WasHidden(true);
+                    }
+                    break;
+                }
+            } 
+        }
+
+        private void updateBrowserScreenLocation()
+        {
+            if (PresentationSource.FromVisual(this) != null)
+            {
+                browserScreenLocation = PointToScreen(new Point());
+            }
+        }
+
+        private void OnWindowLocationChanged(object sender, EventArgs e)
+        {
+            //We maintain a manual reference to the controls screen location
+            //(relative to top/left of the screen)
+            updateBrowserScreenLocation();
+        }
+
+        /// <summary>
+        /// Removes the source hook.
+        /// </summary>
         private void RemoveSourceHook()
         {
             if (source != null && sourceHook != null)
@@ -866,11 +1616,20 @@ namespace CefSharp.Wpf
             }
         }
 
-        private void CreateOffscreenBrowserWhenActualSizeChanged()
+        /// <summary>
+        /// Create the underlying Browser instance, can be overriden to defer control creation
+        /// The browser will only be created when size &gt; Size(0,0). If you specify a positive
+        /// size then the browser will be created, if the ActualWidth and ActualHeight
+        /// properties are in reality still 0 then you'll likely end up with a browser that
+        /// won't render.
+        /// </summary>
+        /// <param name="size">size of the current control, must be greater than Size(0, 0)</param>
+        /// <returns>bool to indicate if browser was created. If the browser has already been created then this will return false.</returns>
+        protected virtual bool CreateOffscreenBrowser(Size size)
         {
-            if (browserCreated || System.ComponentModel.DesignerProperties.GetIsInDesignMode(this))
+            if (browserCreated || size.IsEmpty || size.Equals(new Size(0, 0)))
             {
-                return;
+                return false;
             }
 
             var webBrowserInternal = this as IWebBrowserInternal;
@@ -879,8 +1638,15 @@ namespace CefSharp.Wpf
                 managedCefBrowserAdapter.CreateOffscreenBrowser(source == null ? IntPtr.Zero : source.Handle, BrowserSettings, RequestContext, Address);
             }
             browserCreated = true;
+
+            return true;
         }
 
+        /// <summary>
+        /// Runs the specific Action on the Dispatcher in an async fashion
+        /// </summary>
+        /// <param name="action">The action.</param>
+        /// <param name="priority">The priority.</param>
         private void UiThreadRunAsync(Action action, DispatcherPriority priority = DispatcherPriority.DataBind)
         {
             if (Dispatcher.CheckAccess())
@@ -893,12 +1659,32 @@ namespace CefSharp.Wpf
             }
         }
 
-        private void OnActualSizeChanged(object sender, EventArgs e)
+        /// <summary>
+        /// Runs the specific Action on the Dispatcher in an sync fashion
+        /// </summary>
+        /// <param name="action">The action.</param>
+        /// <param name="priority">The priority.</param>
+        private void UiThreadRunSync(Action action, DispatcherPriority priority = DispatcherPriority.DataBind)
+        {
+            if (Dispatcher.CheckAccess())
+            {
+                action();
+            }
+            else if (!Dispatcher.HasShutdownStarted)
+            {
+                Dispatcher.Invoke(action, priority);
+            }
+        }
+
+        /// <summary>
+        /// Handles the <see cref="E:ActualSizeChanged" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="SizeChangedEventArgs"/> instance containing the event data.</param>
+        private void OnActualSizeChanged(object sender, SizeChangedEventArgs e)
         {
             // Initialize RenderClientAdapter when WPF has calculated the actual size of current content.
-            CreateOffscreenBrowserWhenActualSizeChanged();
-
-            var browser = GetBrowser();
+            CreateOffscreenBrowser(e.NewSize);
 
             if (browser != null)
             {
@@ -906,11 +1692,14 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:IsVisibleChanged" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="args">The <see cref="DependencyPropertyChangedEventArgs"/> instance containing the event data.</param>
         private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs args)
         {
             var isVisible = (bool)args.NewValue;
-
-            var browser = GetBrowser();
 
             if (browser != null)
             {
@@ -918,29 +1707,78 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:ApplicationExit" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="ExitEventArgs"/> instance containing the event data.</param>
         private static void OnApplicationExit(object sender, ExitEventArgs e)
+        {
+            if (!designMode)
+            {
+                CefShutdown();
+            }
+        }
+
+        /// <summary>
+        /// Required for designer support - this method cannot be inlined as the designer
+        /// will attempt to load libcef.dll and will subsiquently throw an exception.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void CefShutdown()
         {
             Cef.Shutdown();
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:Loaded" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="routedEventArgs">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void OnLoaded(object sender, RoutedEventArgs routedEventArgs)
         {
             if (CleanupElement == null)
             {
                 CleanupElement = Window.GetWindow(this);
             }
+
+            // TODO: Consider making the delay here configurable.
+            tooltipTimer = new DispatcherTimer(
+                TimeSpan.FromSeconds(0.5),
+                DispatcherPriority.Render,
+                OnTooltipTimerTick,
+                Dispatcher
+                );
+            tooltipTimer.IsEnabled = false;
+
+            //Initial value for screen location
+            updateBrowserScreenLocation();
         }
 
+        /// <summary>
+        /// When overridden in a derived class, is invoked whenever application code or internal processes call
+        /// <see cref="M:System.Windows.FrameworkElement.ApplyTemplate" />.
+        /// </summary>
         public override void OnApplyTemplate()
         {
             base.OnApplyTemplate();
 
-            // Create main window
-            Content = image = CreateImage();
+            if (image == null)
+            {
+                // Create main window
+                Content = image = CreateImage();
+            }
 
-            popup = CreatePopup();
+            if (popup == null)
+            {
+                popup = CreatePopup();
+            }
         }
 
+        /// <summary>
+        /// Creates the image.
+        /// </summary>
+        /// <returns>Image.</returns>
         private Image CreateImage()
         {
             var img = new Image();
@@ -958,6 +1796,10 @@ namespace CefSharp.Wpf
             return img;
         }
 
+        /// <summary>
+        /// Creates the popup.
+        /// </summary>
+        /// <returns>Popup.</returns>
         private Popup CreatePopup()
         {
             var newPopup = new Popup
@@ -967,12 +1809,22 @@ namespace CefSharp.Wpf
                 Placement = PlacementMode.Absolute,
             };
 
-            newPopup.MouseEnter += PopupMouseEnter;
-            newPopup.MouseLeave += PopupMouseLeave;
+            newPopup.Opened += PopupOpened;
+            newPopup.Closed += PopupClosed;
 
             return newPopup;
         }
 
+        /// <summary>
+        /// WindowProc callback interceptor. Handles Windows messages intended for the source hWnd, and passes them to the
+        /// contained browser as needed.
+        /// </summary>
+        /// <param name="hWnd">The source handle.</param>
+        /// <param name="message">The message.</param>
+        /// <param name="wParam">Additional message info.</param>
+        /// <param name="lParam">Even more message info.</param>
+        /// <param name="handled">if set to <c>true</c>, the event has already been handled by someone else.</param>
+        /// <returns>IntPtr.</returns>
         protected virtual IntPtr SourceHook(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             if (handled)
@@ -989,6 +1841,7 @@ namespace CefSharp.Wpf
                 case WM.KEYUP:
                 case WM.CHAR:
                 case WM.IME_CHAR:
+                { 
                     if (!IsKeyboardFocused)
                     {
                         break;
@@ -1002,9 +1855,14 @@ namespace CefSharp.Wpf
                         return IntPtr.Zero;
                     }
 
-                    handled = managedCefBrowserAdapter.SendKeyEvent(message, wParam.CastToInt32(), lParam.CastToInt32());
+                    if (browser != null)
+                    {
+                        browser.GetHost().SendKeyEvent(message, wParam.CastToInt32(), lParam.CastToInt32());    
+                        handled = true;
+                    }
 
                     break;
+                }
             }
 
             return IntPtr.Zero;
@@ -1013,18 +1871,22 @@ namespace CefSharp.Wpf
         /// <summary>
         /// Converts a .NET Drag event to a CefSharp MouseEvent
         /// </summary>
+        /// <param name="e">The <see cref="DragEventArgs"/> instance containing the event data.</param>
+        /// <returns>MouseEvent.</returns>
         private MouseEvent GetMouseEvent(DragEventArgs e)
         {
             var point = e.GetPosition(this);
 
-            return new MouseEvent
-            {
-                X = (int)point.X,
-                Y = (int)point.Y,
-                //Modifiers = modifiers // TODO: Add support for modifiers in drag events (might not be need as it can be accessed via the mouse events)
-            };
+            return new MouseEvent((int)point.X, (int)point.Y, CefEventFlags.None);
         }
 
+        /// <summary>
+        /// Sets the popup size and position implementation.
+        /// </summary>
+        /// <param name="width">The width.</param>
+        /// <param name="height">The height.</param>
+        /// <param name="x">The x.</param>
+        /// <param name="y">The y.</param>
         private void SetPopupSizeAndPositionImpl(int width, int height, int x, int y)
         {
             popup.Width = width ;
@@ -1032,10 +1894,15 @@ namespace CefSharp.Wpf
 
             var popupOffset = new Point(x, y);
             var locationFromScreen = PointToScreen(popupOffset);
-            popup.HorizontalOffset = locationFromScreen.X / matrix.M11;
-            popup.VerticalOffset = locationFromScreen.Y / matrix.M22;
+            popup.HorizontalOffset = locationFromScreen.X / DpiScaleFactor;
+            popup.VerticalOffset = locationFromScreen.Y / DpiScaleFactor;
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:TooltipTimerTick" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         private void OnTooltipTimerTick(object sender, EventArgs e)
         {
             tooltipTimer.Stop();
@@ -1043,6 +1910,11 @@ namespace CefSharp.Wpf
             UpdateTooltip(TooltipText);
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:TooltipClosed" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void OnTooltipClosed(object sender, RoutedEventArgs e)
         {
             toolTip.Visibility = Visibility.Collapsed;
@@ -1052,6 +1924,10 @@ namespace CefSharp.Wpf
             toolTip.Placement = PlacementMode.Absolute;
         }
 
+        /// <summary>
+        /// Updates the tooltip.
+        /// </summary>
+        /// <param name="text">The text.</param>
         private void UpdateTooltip(string text)
         {
             if (String.IsNullOrEmpty(text))
@@ -1067,26 +1943,37 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:GotKeyboardFocus" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="KeyboardFocusChangedEventArgs"/> instance containing the event data.</param>
         private void OnGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
-            var browser = GetBrowser();
-
             if (browser != null)
             {
                 browser.GetHost().SendFocusEvent(true);
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:LostKeyboardFocus" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="KeyboardFocusChangedEventArgs"/> instance containing the event data.</param>
         private void OnLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
-            var browser = GetBrowser();
-
             if (browser != null)
             {
                 browser.GetHost().SendFocusEvent(false);
             }
         }
 
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Keyboard.PreviewKeyDown" /> attached event reaches an
+        /// element in its route that is derived from this class. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.KeyEventArgs" /> that contains the event data.</param>
         protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
             if (!e.Handled)
@@ -1097,6 +1984,11 @@ namespace CefSharp.Wpf
             base.OnPreviewKeyDown(e);
         }
 
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Keyboard.PreviewKeyUp" /> attached event reaches an
+        /// element in its route that is derived from this class. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.KeyEventArgs" /> that contains the event data.</param>
         protected override void OnPreviewKeyUp(KeyEventArgs e)
         {
             if (!e.Handled)
@@ -1107,6 +1999,10 @@ namespace CefSharp.Wpf
             base.OnPreviewKeyUp(e);
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:PreviewKey" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="KeyEventArgs"/> instance containing the event data.</param>
         private void OnPreviewKey(KeyEventArgs e)
         {
             // As KeyDown and KeyUp bubble, it appears they're being handled before they get a chance to
@@ -1122,14 +2018,20 @@ namespace CefSharp.Wpf
                 var message = (int)(e.IsDown ? WM.KEYDOWN : WM.KEYUP);
                 var virtualKey = KeyInterop.VirtualKeyFromKey(e.Key);
 
-                e.Handled = managedCefBrowserAdapter.SendKeyEvent(message, virtualKey, (int)modifiers);
+                if(browser != null)
+                {
+                    browser.GetHost().SendKeyEvent(message, virtualKey, (int)modifiers);
+                    e.Handled = true;
+                }
             }
         }
 
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Mouse.MouseMove" /> attached event reaches an element in its route that is derived from this class. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.MouseEventArgs" /> that contains the event data.</param>
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            var browser = GetBrowser();
-
             if (browser != null)
             {
                 var point = e.GetPosition(this);
@@ -1139,52 +2041,86 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Mouse.MouseWheel" /> attached event reaches an element in its route that is derived from this class. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.MouseWheelEventArgs" /> that contains the event data.</param>
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
-            var browser = GetBrowser();
-
             if (browser != null)
             {
                 var point = e.GetPosition(this);
                 var modifiers = e.GetModifiers();
+                var isShiftKeyDown = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+                var pointX = (int)point.X;
+                var pointY= (int)point.Y;
+
+                System.Diagnostics.Trace.WriteLine("PointX:" + pointX);
+                System.Diagnostics.Trace.WriteLine("PointY:" + pointY);
+                System.Diagnostics.Trace.WriteLine("Delta:" + e.Delta);
 
                 browser.SendMouseWheelEvent(
-                    (int)point.X,
-                    (int)point.Y,
-                    deltaX: 0,
-                    deltaY: e.Delta,
+                    pointX,
+                    pointY,
+                    deltaX: isShiftKeyDown ? e.Delta : 0,
+                    deltaY: !isShiftKeyDown ? e.Delta : 0,
                     modifiers: modifiers);
             }
         }
 
-        protected void PopupMouseEnter(object sender, MouseEventArgs e)
+        /// <summary>
+        /// Captures the mouse when the popup is opened.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        private void PopupOpened(object sender, EventArgs e)
         {
-            Focus();
-            Mouse.Capture(this);
+            if (Mouse.Captured != this)
+            {
+                Mouse.Capture(this);
+            }
         }
 
-        protected void PopupMouseLeave(object sender, MouseEventArgs e)
+        /// <summary>
+        /// Releases mouse capture when the popup is closed.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        private void PopupClosed(object sender, EventArgs e)
         {
-            Mouse.Capture(null);
+            if (Mouse.Captured == this)
+            {
+                Mouse.Capture(null);
+            }
         }
 
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Mouse.MouseDown" /> attached event reaches an
+        /// element in its route that is derived from this class. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.MouseButtonEventArgs" /> that contains the event data.
+        /// This event data reports details about the mouse button that was pressed and the handled state.</param>
         protected override void OnMouseDown(MouseButtonEventArgs e)
         {
             Focus();
             OnMouseButton(e);
-            Mouse.Capture(this);
         }
 
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Mouse.MouseUp" /> routed event reaches an element in its route that is derived from this class. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.MouseButtonEventArgs" /> that contains the event data. The event data reports that the mouse button was released.</param>
         protected override void OnMouseUp(MouseButtonEventArgs e)
         {
             OnMouseButton(e);
-            Mouse.Capture(null);
         }
 
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Mouse.MouseLeave" /> attached event is raised on this element. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.MouseEventArgs" /> that contains the event data.</param>
         protected override void OnMouseLeave(MouseEventArgs e)
         {
-            var browser = GetBrowser();
-
             if (browser != null)
             {
                 var modifiers = e.GetModifiers();
@@ -1195,6 +2131,10 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Handles the <see cref="E:MouseButton" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="MouseButtonEventArgs"/> instance containing the event data.</param>
         private void OnMouseButton(MouseButtonEventArgs e)
         {
             // Cef currently only supports Left, Middle and Right button presses.
@@ -1203,42 +2143,35 @@ namespace CefSharp.Wpf
                 return;
             }
 
-            var modifiers = e.GetModifiers();
-            var mouseUp = (e.ButtonState == MouseButtonState.Released);
-            var point = e.GetPosition(this);
-
-            var browser = GetBrowser();
-
             if (browser != null)
             {
+                var modifiers = e.GetModifiers();
+                var mouseUp = (e.ButtonState == MouseButtonState.Released);
+                var point = e.GetPosition(this);
+
                 browser.GetHost().SendMouseClickEvent((int)point.X, (int)point.Y, (MouseButtonType)e.ChangedButton, mouseUp, e.ClickCount, modifiers);
+
+                e.Handled = true;
             }
         }
 
+        /// <summary>
+        /// Loads the specified URL.
+        /// </summary>
+        /// <param name="url">The URL to be loaded.</param>
         public void Load(string url)
         {
             // Added null check -> binding-triggered changes of Address will lead to a nullref after Dispose has been called
             // or before OnApplyTemplate has been called
-            var browser = GetBrowser();
             if (browser != null)
             {
-                if (tooltipTimer != null)
-                {
-                    tooltipTimer.Tick -= OnTooltipTimerTick;
-                }
-
-                // TODO: Consider making the delay here configurable.
-                tooltipTimer = new DispatcherTimer(
-                    TimeSpan.FromSeconds(0.5),
-                    DispatcherPriority.Render,
-                    OnTooltipTimerTick,
-                    Dispatcher
-                    );
-
                 browser.MainFrame.LoadUrl(url);
             }
         }
 
+        /// <summary>
+        /// Zooms the browser in.
+        /// </summary>
         private void ZoomIn()
         {
             UiThreadRunAsync(() =>
@@ -1247,6 +2180,9 @@ namespace CefSharp.Wpf
             });
         }
 
+        /// <summary>
+        /// Zooms the browser out.
+        /// </summary>
         private void ZoomOut()
         {
             UiThreadRunAsync(() =>
@@ -1255,6 +2191,9 @@ namespace CefSharp.Wpf
             });
         }
 
+        /// <summary>
+        /// Reset the browser's zoom level to default.
+        /// </summary>
         private void ZoomReset()
         {
             UiThreadRunAsync(() =>
@@ -1263,9 +2202,17 @@ namespace CefSharp.Wpf
             });
         }
 
-        public void RegisterJsObject(string name, object objectToBind, bool camelCaseJavascriptNames = true)
+        /// <summary>
+        /// Registers a Javascript object in this specific browser instance.
+        /// </summary>
+        /// <param name="name">The name of the object. (e.g. "foo", if you want the object to be accessible as window.foo).</param>
+        /// <param name="objectToBind">The object to be made accessible to Javascript.</param>
+        /// <param name="options">binding options - camelCaseJavascriptNames default to true </param>
+        /// <exception cref="System.Exception">Browser is already initialized. RegisterJsObject must be +
+        ///                                     called before the underlying CEF browser is created.</exception>
+        public void RegisterJsObject(string name, object objectToBind, BindingOptions options = null)
         {
-            if (browserInitialized)
+            if (InternalIsBrowserInitialized())
             {
                 throw new Exception("Browser is already initialized. RegisterJsObject must be" +
                                     "called before the underlying CEF browser is created.");
@@ -1274,22 +2221,35 @@ namespace CefSharp.Wpf
             //Enable WCF if not already enabled
             CefSharpSettings.WcfEnabled = true;
 
-            managedCefBrowserAdapter.RegisterJsObject(name, objectToBind, camelCaseJavascriptNames);
+            managedCefBrowserAdapter.RegisterJsObject(name, objectToBind, options);
         }
 
-        public void RegisterAsyncJsObject(string name, object objectToBind, bool camelCaseJavascriptNames = true)
+        /// <summary>
+        /// <para>Asynchronously registers a Javascript object in this specific browser instance.</para>
+        /// <para>Only methods of the object will be availabe.</para>
+        /// </summary>
+        /// <param name="name">The name of the object. (e.g. "foo", if you want the object to be accessible as window.foo).</param>
+        /// <param name="objectToBind">The object to be made accessible to Javascript.</param>
+        /// <param name="options">binding options - camelCaseJavascriptNames default to true </param>
+        /// <exception cref="System.Exception">Browser is already initialized. RegisterJsObject must be +
+        ///                                     called before the underlying CEF browser is created.</exception>
+        /// <remarks>The registered methods can only be called in an async way, they will all return immeditaly and the resulting
+        /// object will be a standard javascript Promise object which is usable to wait for completion or failure.</remarks>
+        public void RegisterAsyncJsObject(string name, object objectToBind, BindingOptions options = null)
         {
-            if (browserInitialized)
+            if (InternalIsBrowserInitialized())
             {
                 throw new Exception("Browser is already initialized. RegisterJsObject must be" +
                                     "called before the underlying CEF browser is created.");
             }
-            managedCefBrowserAdapter.RegisterAsyncJsObject(name, objectToBind, camelCaseJavascriptNames);
+            managedCefBrowserAdapter.RegisterAsyncJsObject(name, objectToBind, options);
         }
 
         /// <summary>
         /// Raises Rendering event
         /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="bitmapInfo">The bitmap information.</param>
         protected virtual void OnRendering(object sender, WpfBitmapInfo bitmapInfo)
         {
             var rendering = Rendering;
@@ -1299,36 +2259,58 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Returns the current IBrowser Instance
+        /// </summary>
+        /// <returns>browser instance or null</returns>
         public IBrowser GetBrowser()
         {
-            return managedCefBrowserAdapter == null ? null : managedCefBrowserAdapter.GetBrowser();
+            return browser;
         }
 
+        /// <summary>
+        /// Gets a value indicating whether this instance is disposed.
+        /// </summary>
+        /// <value><c>true</c> if this instance is disposed; otherwise, <c>false</c>.</value>
         public bool IsDisposed
         {
-            get { return disposeCount > 0; }
-        }
-
-        protected override void OnManipulationDelta(ManipulationDeltaEventArgs e)
-        {
-           base.OnManipulationDelta(e);
-
-            if (!e.Handled)
+            get
             {
-                var point = e.ManipulationOrigin;
-
-                var browser = GetBrowser();
-
-                if (browser != null)
-                {
-                    browser.GetHost().SendMouseWheelEvent(
-                        (int)point.X,
-                        (int)point.Y,
-                        deltaX: (int)e.DeltaManipulation.Translation.X,
-                        deltaY: (int)e.DeltaManipulation.Translation.Y,
-                        modifiers: CefEventFlags.None);
-                }
+                //Use CompareExchange to read the current value - if disposeCount is 1, we set it to 1, effectively a no-op
+                //Volatile.Read would likely use a memory barrier which I beleive is unnessicary in this scenario
+                return Interlocked.CompareExchange(ref disposeCount, 1, 1) == 1;
             }
         }
+
+        /// <summary>
+        /// Check is browserisinitialized
+        /// </summary>
+        /// <returns>true if browser is initialized</returns>
+        private bool InternalIsBrowserInitialized()
+        {
+            //Use CompareExchange to read the current value - if browserInitialized is 0, we set it to 0, effectively a no-op
+            //Volatile.Read would likely use a memory barrier which I beleive is unnessicary in this scenario
+            return Interlocked.CompareExchange(ref browserInitialized, 0, 0) == 1;
+        }
+
+        //protected override void OnManipulationDelta(ManipulationDeltaEventArgs e)
+        //{
+        //   base.OnManipulationDelta(e);
+
+        //	if (!e.Handled)
+        //	{
+        //		var point = e.ManipulationOrigin;
+
+        //		if (browser != null)
+        //		{
+        //			browser.GetHost().SendMouseWheelEvent(
+        //				(int)point.X,
+        //				(int)point.Y,
+        //				deltaX: (int)e.DeltaManipulation.Translation.X,
+        //				deltaY: (int)e.DeltaManipulation.Translation.Y,
+        //				modifiers: CefEventFlags.None);
+        //		}
+        //	}
+        //}
     }
 }

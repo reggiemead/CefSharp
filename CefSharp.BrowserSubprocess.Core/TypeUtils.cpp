@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -148,7 +148,7 @@ namespace CefSharp
         throw gcnew Exception(String::Format("Cannot convert '{0}' object from CLR to CEF.", type->FullName));
     }
 
-    Object^ TypeUtils::ConvertFromCef(CefRefPtr<CefV8Value> obj)
+    Object^ TypeUtils::ConvertFromCef(CefRefPtr<CefV8Value> obj, JavascriptCallbackRegistry^ callbackRegistry)
     {
         if (obj->IsNull() || obj->IsUndefined())
         {
@@ -156,15 +156,25 @@ namespace CefSharp
         }
 
         if (obj->IsBool())
+        {
             return gcnew System::Boolean(obj->GetBoolValue());
+        }
         if (obj->IsInt())
+        {
             return gcnew System::Int32(obj->GetIntValue());
+        }
         if (obj->IsDouble())
+        {
             return gcnew System::Double(obj->GetDoubleValue());
+        }
         if (obj->IsString())
+        {
             return StringUtils::ToClr(obj->GetStringValue());
+        }
         if (obj->IsDate())
+        {
             return TypeUtils::ConvertCefTimeToDateTime(obj->GetDateValue());
+        }
 
         if (obj->IsArray())
         {
@@ -182,7 +192,7 @@ namespace CefSharp
                         auto data = obj->GetValue(keys[i]);
                         if (data != nullptr)
                         {
-                            auto p_data = TypeUtils::ConvertFromCef(data);
+                            auto p_data = TypeUtils::ConvertFromCef(data, callbackRegistry);
 
                             array->Add(p_data);
                         }
@@ -193,6 +203,16 @@ namespace CefSharp
             }
 
             return nullptr;
+        }
+
+        if (obj->IsFunction())
+        {
+            if (callbackRegistry == nullptr)
+            {
+                return nullptr;
+            }
+
+            return callbackRegistry->Register(CefV8Context::GetCurrentContext(), obj);
         }
 
         if (obj->IsObject())
@@ -214,7 +234,7 @@ namespace CefSharp
                             CefRefPtr<CefV8Value> data = obj->GetValue(keys[i]);
                             if (data != nullptr)
                             {
-                                Object^ p_data = TypeUtils::ConvertFromCef(data);
+                                Object^ p_data = TypeUtils::ConvertFromCef(data, callbackRegistry);
 
                                 result->Add(p_keyStr, p_data);
                             }

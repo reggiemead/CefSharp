@@ -7,7 +7,7 @@
   xmlns:asmv3="urn:schemas-microsoft-com:asm.v3"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
-  <assemblyIdentity version="47.0.0.0" name="CefSharp.Wpf.Example.app" />
+  <assemblyIdentity version="58.0.0.0" name="CefSharp.Wpf.Example.app" />
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
@@ -30,7 +30,7 @@
 
   <asmv3:application>
     <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
-      <dpiAware>true</dpiAware>
+      <dpiAware>true/PM</dpiAware>
     </asmv3:windowsSettings>
   </asmv3:application>
 

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CefSharp.Example</RootNamespace>
     <AssemblyName>CefSharp.Example</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -61,19 +61,44 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AsyncBoundObject.cs" />
     <Compile Include="BoundObject.cs" />
     <Compile Include="CallbackResponseStruct.cs" />
-    <Compile Include="DragHandler.cs" />
+    <Compile Include="Filters\AppendResponseFilter.cs" />
+    <Compile Include="Filters\FindReplaceMultiResponseFilter.cs" />
+    <Compile Include="Filters\FindReplaceResponseFilter.cs" />
+    <Compile Include="Filters\MemoryStreamResponseFilter.cs" />
     <Compile Include="FlashResourceHandler.cs" />
     <Compile Include="FlashResourceHandlerFactory.cs" />
+    <Compile Include="Filters\PassThruResponseFilter.cs" />
+    <Compile Include="Handlers\BrowserProcessHandler.cs" />
+    <Compile Include="InMemorySchemeAndResourceHandlerFactory.cs" />
+    <Compile Include="ModelBinding\MethodInterceptorLogger.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\BaseRequestEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\GetAuthCredentialsEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\GetResourceResponseFilterEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnBeforeBrowseEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnBeforeResourceLoadEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnCertificateErrorEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnOpenUrlFromTabEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnPluginCrashedEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnProtocolExecutionEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnQuotaRequestEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnRenderProcessTerminatedEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnRenderViewReadyEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnResourceLoadCompleteEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnResourceRedirectEventArgs.cs" />
+    <Compile Include="RequestEventHandler\EventArgs\OnResourceResponseEventArgs.cs" />
+    <Compile Include="RequestEventHandler\RequestEventHandler.cs" />
     <Compile Include="ScriptedMethodsBoundObject.cs" />
     <Compile Include="ExceptionTestBoundObject.cs" />
     <Compile Include="JsDialogHandler.cs" />
@@ -82,6 +107,8 @@
     <Compile Include="Proxy\ProxyConfig.cs" />
     <Compile Include="RenderProcessMessageHandler.cs" />
     <Compile Include="ScriptedMethods.cs" />
+    <Compile Include="SimpleClass.cs" />
+    <Compile Include="SimpleSubClass.cs" />
     <Compile Include="SubBoundObject.cs" />
     <Compile Include="TempFileDialogHandler.cs" />
     <Compile Include="CefExample.cs" />
@@ -98,7 +125,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
+      <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -107,11 +134,14 @@
     <Content Include="Resources\assets\css\docs.css" />
     <Content Include="Resources\assets\css\shCore.css" />
     <Content Include="Resources\assets\css\shCoreDefault.css" />
+    <None Include="Resources\assets\images\beach-2089936_1920.jpg" />
     <Content Include="Resources\assets\js\application.js" />
     <Content Include="Resources\assets\js\jquery.js" />
     <Content Include="Resources\assets\js\shBrushCSharp.js" />
     <None Include="Resources\assets\js\shBrushJScript.js" />
     <Content Include="Resources\assets\js\shCore.js" />
+    <Content Include="Resources\CdmSupportTest.html" />
+    <Content Include="Resources\CssAnimation.html" />
     <Content Include="Resources\ExceptionTest.html" />
     <Content Include="Resources\BindingTest.html" />
     <Content Include="Resources\bootstrap\bootstrap-theme.min.css" />
@@ -122,8 +152,13 @@
     <Content Include="Resources\home.html" />
     <Content Include="Resources\FramedWebGLTest.html" />
     <Content Include="Resources\PopupTest.html" />
+    <Content Include="Resources\DraggableRegionTest.html" />
+    <Content Include="Resources\Recaptcha.html" />
+    <Content Include="Resources\ResponseFilterTest.html" />
     <Content Include="Resources\SchemeTest.html" />
     <Content Include="Resources\ScriptedMethodsTest.html" />
+    <Content Include="Resources\UnicodeExampleGreaterThan32kb.html" />
+    <Content Include="Resources\UnocodeExampleEqualTo32kb.html" />
     <Content Include="Resources\TooltipTest.html" />
   </ItemGroup>
   <ItemGroup>

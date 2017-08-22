@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -6,6 +6,7 @@ using System;
 using System.Windows.Forms;
 using CefSharp.Example;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace CefSharp.WinForms.Example
 {
@@ -16,7 +17,9 @@ namespace CefSharp.WinForms.Example
         // Default to a small increment:
         private const double ZoomIncrement = 0.10;
 
-        public BrowserForm()
+        private bool multiThreadedMessageLoopEnabled;
+
+        public BrowserForm(bool multiThreadedMessageLoopEnabled)
         {
             InitializeComponent();
 
@@ -24,18 +27,25 @@ namespace CefSharp.WinForms.Example
             Text = "CefSharp.WinForms.Example - " + bitness;
             WindowState = FormWindowState.Maximized;
 
-            AddTab(CefExample.DefaultUrl);
+            Load += BrowserFormLoad;
 
             //Only perform layout when control has completly finished resizing
             ResizeBegin += (s, e) => SuspendLayout();
             ResizeEnd += (s, e) => ResumeLayout(true);
+
+            this.multiThreadedMessageLoopEnabled = multiThreadedMessageLoopEnabled;
+        }
+
+        private void BrowserFormLoad(object sender, EventArgs e)
+        {
+            AddTab(CefExample.DefaultUrl);
         }
 
         private void AddTab(string url, int? insertIndex = null)
         {
             browserTabControl.SuspendLayout();
 
-            var browser = new BrowserTabUserControl(AddTab, url)
+            var browser = new BrowserTabUserControl(AddTab, url, multiThreadedMessageLoopEnabled)
             {
                 Dock = DockStyle.Fill,
             };
@@ -224,6 +234,39 @@ namespace CefSharp.WinForms.Example
             if (control != null)
             {
                 control.Browser.ShowDevTools();
+
+                //EXPERIMENTAL Example below shows how to use a control to host DevTools
+                //(in this case it's added as a new TabPage)
+                // NOTE: Does not currently move/resize correctly
+                //var tabPage = new TabPage("DevTools")
+                //{
+                //    Dock = DockStyle.Fill
+                //};
+
+                //var panel = new Panel
+                //{
+                //    Dock = DockStyle.Fill
+                //};
+
+                ////We need to call CreateControl as we need the Handle later
+                //panel.CreateControl();
+
+                //tabPage.Controls.Add(panel);
+
+                //browserTabControl.TabPages.Add(tabPage);
+
+                ////Make newly created tab active
+                //browserTabControl.SelectedTab = tabPage;
+
+                ////Grab the client rect
+                //var rect = panel.ClientRectangle;
+                //var webBrowser = control.Browser;
+                //var browser = webBrowser.GetBrowser().GetHost();
+                //var windowInfo = new WindowInfo();
+                ////DevTools becomes a child of the panel, we use it's dimesions
+                //windowInfo.SetAsChild(panel.Handle, rect.Left, rect.Top, rect.Right, rect.Bottom);
+                ////Show DevTools in our panel 
+                //browser.ShowDevTools(windowInfo);
             }
         }
 
@@ -245,7 +288,7 @@ namespace CefSharp.WinForms.Example
 
                 task.ContinueWith(previous =>
                 {
-                    if (previous.IsCompleted)
+                    if (previous.Status == TaskStatus.RanToCompletion)
                     {
                         var currentLevel = previous.Result;
                         control.Browser.SetZoomLevel(currentLevel + ZoomIncrement);
@@ -266,7 +309,7 @@ namespace CefSharp.WinForms.Example
                 var task = control.Browser.GetZoomLevelAsync();
                 task.ContinueWith(previous =>
                 {
-                    if (previous.IsCompleted)
+                    if (previous.Status == TaskStatus.RanToCompletion)
                     {
                         var currentLevel = previous.Result;
                         control.Browser.SetZoomLevel(currentLevel - ZoomIncrement);
@@ -287,7 +330,7 @@ namespace CefSharp.WinForms.Example
                 var task = control.Browser.GetZoomLevelAsync();
                 task.ContinueWith(previous =>
                 {
-                    if (previous.IsCompleted)
+                    if (previous.Status == TaskStatus.RanToCompletion)
                     {
                         var currentLevel = previous.Result;
                         MessageBox.Show("Current ZoomLevel: " + currentLevel.ToString());
@@ -393,6 +436,61 @@ namespace CefSharp.WinForms.Example
 
                 //Execute extension method
                 frame.ListenForEvent("test-button", "click");
+            }
+        }
+
+        private async void PrintToPdfToolStripMenuItemClick(object sender, EventArgs e)
+        {
+            var control = GetCurrentTabControl();
+            if (control != null)
+            {
+                var dialog = new SaveFileDialog
+                {
+                    DefaultExt = ".pdf",
+                    Filter = "Pdf documents (.pdf)|*.pdf"
+                };
+
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    var success = await control.Browser.PrintToPdfAsync(dialog.FileName, new PdfPrintSettings
+                    {
+                        MarginType = CefPdfPrintMarginType.Custom,
+                        MarginBottom = 10,
+                        MarginTop = 0,
+                        MarginLeft = 20,
+                        MarginRight = 10
+                    });
+
+                    if (success)
+                    {
+                        MessageBox.Show("Pdf was saved to " + dialog.FileName);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Unable to save Pdf, check you have write permissions to " + dialog.FileName);
+                    }
+
+                }
+
+            }
+        }
+
+        private void OpenDataUrlToolStripMenuItemClick(object sender, EventArgs e)
+        {
+            var control = GetCurrentTabControl();
+            if (control != null)
+            {
+                const string html = "<html><head><title>Test</title></head><body><h1>Html Encoded in URL!</h1></body></html>";
+                control.Browser.LoadHtml(html, false);
+            }
+        }
+
+        private void OpenHttpBinOrgToolStripMenuItemClick(object sender, EventArgs e)
+        {
+            var control = GetCurrentTabControl();
+            if (control != null)
+            {
+                control.Browser.Load("https://httpbin.org/");
             }
         }
     }

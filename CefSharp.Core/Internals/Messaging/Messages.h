@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -32,6 +32,8 @@ namespace CefSharp
             const CefString kJavascriptAsyncMethodCallResponse = "JavascriptAsyncMethodCallResponse";
             //Message that signals a new V8Context has been created
             const CefString kOnContextCreatedRequest = "OnContextCreated";
+            //Message that signals a new V8Context has been released
+            const CefString kOnContextReleasedRequest = "OnContextReleased";
             // Message from the render process that an element (or nothing) has
             // gotten focus. This message is only sent if specified as an
             // optional message via command line argument when the subprocess is

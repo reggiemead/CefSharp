@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -92,6 +92,18 @@ namespace CefSharp
             void set(UINT32 style)
             {
                 _windowInfo->style = style;
+            }
+        }
+
+        virtual property UINT32 ExStyle
+        {
+            UINT32 get()
+            {
+                return _windowInfo->ex_style;
+            }
+            void set(UINT32 ex_style)
+            {
+                _windowInfo->ex_style = ex_style;
             }
         }
 

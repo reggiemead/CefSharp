@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -18,6 +18,16 @@ namespace CefSharp
         /// Response Headers
         /// </summary>
         NameValueCollection ResponseHeaders { get; set; }
+
+        /// <summary>
+        /// Returns true if this object is read-only.
+        /// </summary>
+        bool IsReadOnly { get; }
+
+        /// <summary>
+        /// Get/set the response error code.
+        /// </summary>
+        CefErrorCode ErrorCode { get; set; }
 
         /// <summary>
         /// The status code of the response. Unless set, the default value used is 200

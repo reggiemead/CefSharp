@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -18,6 +18,7 @@ using namespace System::Diagnostics;
 using namespace System::ServiceModel;
 using namespace System::Threading;
 using namespace System::Threading::Tasks;
+using namespace CefSharp::ModelBinding;
 
 namespace CefSharp
 {
@@ -33,16 +34,6 @@ namespace CefSharp
         bool _isDisposed;
 
     private:
-        // Private keyboard functions:
-        bool IsKeyDown(WPARAM wparam)
-        {
-            return (GetKeyState(wparam) & 0x8000) != 0;
-        }
-
-        // Misc. private functions:
-        int GetCefKeyboardModifiers(WPARAM wparam, LPARAM lparam);
-        CefMouseEvent GetCefMouseEvent(MouseEvent^ mouseEvent);
-
         void MethodInvocationComplete(Object^ sender, MethodInvocationCompleteArgs^ e);
 
     internal:
@@ -118,26 +109,12 @@ namespace CefSharp
             bool get();
         }
 
-        virtual void OnAfterBrowserCreated(int browserId);
+        virtual void OnAfterBrowserCreated(IBrowser^ browser);
         void CreateOffscreenBrowser(IntPtr windowHandle, BrowserSettings^ browserSettings, RequestContext^ requestContext, String^ address);
         void CreateBrowser(BrowserSettings^ browserSettings, RequestContext^ requestContext, IntPtr sourceHandle, String^ address);
-        bool SendKeyEvent(int message, int wParam, int lParam);
-        void Resize(int width, int height);
-        void RegisterJsObject(String^ name, Object^ object, bool lowerCaseJavascriptNames);
-        void RegisterAsyncJsObject(String^ name, Object^ object, bool lowerCaseJavascriptNames);
-        void OnDragTargetDragEnter(CefDragDataWrapper^ dragData, MouseEvent^ mouseEvent, DragOperationsMask allowedOperations);
-        void OnDragTargetDragOver(MouseEvent^ mouseEvent, DragOperationsMask allowedOperations);
-        void OnDragTargetDragLeave();
-        void OnDragTargetDragDrop(MouseEvent^ mouseEvent);
-
-        void OnDragSourceEndedAt(int x, int y, DragOperationsMask op);
-        void OnDragSourceSystemDragEnded();
-
-        /// <summary>
-        /// Gets the CefBrowserWrapper instance
-        /// </summary>
-        /// <returns>Gets the current instance or null</returns>
-        virtual IBrowser^ GetBrowser();
+        virtual void Resize(int width, int height);
+        void RegisterJsObject(String^ name, Object^ object, BindingOptions^ options);
+        void RegisterAsyncJsObject(String^ name, Object^ object, BindingOptions^ options);
 
         virtual IBrowser^ GetBrowser(int browserId);
 

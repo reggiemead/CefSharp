@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -10,9 +10,28 @@ namespace CefSharp
     public interface IRequest : IDisposable
     {
         /// <summary>
+        /// Get/Set the Url to the first party for cookies used in combination with CefURLRequest.
+        /// </summary>
+        /// Note: If we every implment CefURLRequest then this will need to be added
+        //string FirstPartyForCookies { get; set; }
+        
+        /// <summary>
+        /// Get the flags used in combination with CefURLRequest. See cef_urlrequest_flags_t for supported values. 
+        /// </summary>
+        /// Note: If we every implment CefURLRequest then this will need to be added
+        //int Flags { get; set; }
+
+        /// <summary>
         /// Request Url
         /// </summary>
         string Url { get; set; }
+
+        /// <summary>
+        /// Returns the globally unique identifier for this request or 0 if not specified.
+        /// Can be used by <see cref="IRequestHandler"/> implementations in the browser process to track a
+        /// single request across multiple callbacks.
+        /// </summary>
+        ulong Identifier { get; }
 
         /// <summary>
         /// Request Method GET/POST etc
@@ -33,6 +52,10 @@ namespace CefSharp
         /// </summary>
         string ReferrerUrl { get; }
 
+        /// <summary>
+        /// Get the resource type for this request.
+        /// </summary>
+        ResourceType ResourceType { get; }
   
         /// <summary>
         /// Get the referrer policy.
@@ -61,6 +84,11 @@ namespace CefSharp
         /// Gets a value indicating whether the request has been disposed of.
         /// </summary>
         bool IsDisposed { get; }
+
+        /// <summary>
+        /// Returns true if this object is read-only.
+        /// </summary>
+        bool IsReadOnly { get; }
 
         /// <summary>
         /// Initialize a new instance of <see cref="IPostData"/>.

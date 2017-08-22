@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -12,12 +12,13 @@ namespace CefSharp.Internals
     /// </summary>
     public interface IWebBrowserInternal : IWebBrowser
     {
-        void OnAfterBrowserCreated();
+        void OnAfterBrowserCreated(IBrowser browser);
 
         void SetAddress(AddressChangedEventArgs args);
         void SetLoadingStateChange(LoadingStateChangedEventArgs args);
         void SetTitle(TitleChangedEventArgs args);
         void SetTooltipText(string tooltipText);
+        void SetCanExecuteJavascriptOnMainFrame(bool canExecute);
 
         void OnFrameLoadStart(FrameLoadStartEventArgs args);
         void OnFrameLoadEnd(FrameLoadEndEventArgs args);
@@ -27,6 +28,5 @@ namespace CefSharp.Internals
 
         IBrowserAdapter BrowserAdapter { get; }
         bool HasParent { get; set; }
-        IntPtr ControlHandle { get; }
     }
 }

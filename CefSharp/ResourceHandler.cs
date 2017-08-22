@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -6,48 +6,51 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
+using System.Net;
 using System.Text;
 
 namespace CefSharp
 {
     /// <summary>
-    /// Class ResourceHandler.
+    /// Default implementation of <see cref="IResourceHandler"/>. This latest implementation provides some simplification, at
+    /// a minimum you only need to override ProcessRequestAsync. See the project source on GitHub for working examples.
+    /// used to implement a custom request handler interface. The methods of this class will always be called on the IO thread. 
+    /// Static helper methods are included like FromStream and FromString that make dealing with fixed resources easy.
     /// </summary>
     public class ResourceHandler : IResourceHandler
     {
         /// <summary>
         /// MimeType to be used if none provided
         /// </summary>
-        private const string DefaultMimeType = "text/html";
-
-        /// <summary>
-        /// Path of the underlying file
-        /// </summary>
-        public string FilePath { get; private set; }
+        public const string DefaultMimeType = "text/html";
 
         /// <summary>
         /// Gets or sets the Mime Type.
         /// </summary>
-        /// <value>The Mime Type.</value>
         public string MimeType { get; set; }
 
         /// <summary>
         /// Gets or sets the resource stream.
         /// </summary>
-        /// <value>The stream.</value>
-        public Stream Stream { get; private set; }
+        public Stream Stream { get; set; }
 
         /// <summary>
         /// Gets or sets the http status code.
         /// </summary>
-        /// <value>The http status code.</value>
         public int StatusCode { get; set; }
 
         /// <summary>
         /// Gets or sets the status text.
         /// </summary>
-        /// <value>The status text.</value>
         public string StatusText { get; set; }
+
+        /// <summary>
+        /// Gets or sets ResponseLength, when you know the size of your
+        /// Stream (Response) set this property. This is optional.
+        /// If you use a MemoryStream and don't provide a value
+        /// here then it will be cast and it's size used
+        /// </summary>
+        public long? ResponseLength { get; set; }
 
         /// <summary>
         /// Gets or sets the headers.
@@ -56,14 +59,24 @@ namespace CefSharp
         public NameValueCollection Headers { get; private set; }
 
         /// <summary>
-        /// Specify which type of resource handle represnets
+        /// When true the Stream will be Disposed when
+        /// this instance is Disposed. The default value for
+        /// this property is false.
         /// </summary>
-        public ResourceHandlerType Type { get; private set; }
+        public bool AutoDisposeStream { get; set; }
+
+        /// <summary>
+        /// If the ErrorCode is set then the response will be ignored and
+        /// the errorCode returned.
+        /// </summary>
+        public CefErrorCode? ErrorCode { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResourceHandler"/> class.
         /// </summary>
-        private ResourceHandler(string mimeType, ResourceHandlerType type)
+        /// <param name="mimeType">Optional mimeType defaults to <see cref="ResourceHandler.DefaultMimeType"/></param>
+        /// <param name="stream">Optional Stream - must be set at some point to provide a valid response</param>
+        public ResourceHandler(string mimeType = DefaultMimeType, Stream stream = null)
         {
             if(string.IsNullOrEmpty(mimeType))
             {
@@ -74,19 +87,164 @@ namespace CefSharp
             StatusText = "OK";
             MimeType = mimeType;
             Headers = new NameValueCollection();
-            Type = type;
+            Stream = stream;
         }
 
         /// <summary>
-        /// Gets the resource from the file.
+        /// Begin processing the request. If you have the data in memory you can execute the callback
+        /// immediately and return true. For Async processing you would typically spawn a Task to perform processing,
+        /// then return true. When the processing is complete execute callback.Continue(); In your processing Task, simply set
+        /// the StatusCode, StatusText, MimeType, ResponseLength and Stream
         /// </summary>
-        /// <param name="fileName">Location of the file.</param>
-        /// <param name="fileExtension">The file extension.</param>
-        /// <returns>ResourceHandler.</returns>
-        public static ResourceHandler FromFileName(string fileName, string fileExtension = null)
+        /// <param name="request">The request object.</param>
+        /// <param name="callback">The callback used to Continue or Cancel the request (async).</param>
+        /// <returns>To handle the request return true and call
+        /// <see cref="ICallback.Continue"/> once the response header information is available
+        /// <see cref="ICallback.Continue"/> can also be called from inside this method if
+        /// header information is available immediately).
+        /// To cancel the request return false.</returns>
+        public virtual bool ProcessRequestAsync(IRequest request, ICallback callback)
         {
-            var mimeType = string.IsNullOrEmpty(fileExtension) ? DefaultMimeType : GetMimeType(fileExtension);
-            return new ResourceHandler(mimeType, ResourceHandlerType.File) { FilePath = fileName };
+            callback.Continue();
+
+            return true;
+        }
+
+        /// <summary>
+        /// Populate the response stream, response length. When this method is called
+        /// the response should be fully populated with data.
+        /// It is possible to redirect to another url at this point in time.
+        /// NOTE: It's no longer manditory to implement this method, you can simply populate the
+        /// properties of this instance and they will be set by the default implementation. 
+        /// </summary>
+        /// <param name="response">The response object used to set Headers, StatusCode, etc</param>
+        /// <param name="responseLength">length of the response</param>
+        /// <param name="redirectUrl">If set the request will be redirect to specified Url</param>
+        /// <returns>The response stream</returns>
+        public virtual Stream GetResponse(IResponse response, out long responseLength, out string redirectUrl)
+        {
+            redirectUrl = null;
+            responseLength = -1;
+
+            response.MimeType = MimeType;
+            response.StatusCode = StatusCode;
+            response.StatusText = StatusText;
+            response.ResponseHeaders = Headers;
+
+            if(ResponseLength.HasValue)
+            {
+                responseLength = ResponseLength.Value;
+            }
+            else
+            { 
+                //If no ResponseLength provided then attempt to infer the length
+                if (Stream != null && Stream.CanSeek)
+                {
+                    responseLength = Stream.Length;
+                }
+            }
+
+            return Stream;
+        }
+
+        /// <summary>
+        /// Called if the request is cancelled
+        /// </summary>
+        public virtual void Cancel()
+        {
+
+        }
+
+        bool IResourceHandler.ProcessRequest(IRequest request, ICallback callback)
+        {
+            return ProcessRequestAsync(request, callback);
+        }
+
+        void IResourceHandler.GetResponseHeaders(IResponse response, out long responseLength, out string redirectUrl)
+        {
+            if (ErrorCode.HasValue)
+            {
+                responseLength = 0;
+                redirectUrl = null;
+                response.ErrorCode = ErrorCode.Value;
+            }
+            else
+            { 
+                Stream = GetResponse(response, out responseLength, out redirectUrl);
+            
+                if(Stream != null && Stream.CanSeek)
+                {
+                    //Reset the stream position to 0
+                    Stream.Position = 0;
+                }
+            }
+        }
+
+        bool IResourceHandler.ReadResponse(Stream dataOut, out int bytesRead, ICallback callback)
+        {
+            //We don't need the callback, as it's an unmanaged resource we should dispose it (could wrap it in a using statement).
+            callback.Dispose();
+
+            if (Stream == null)
+            {
+                bytesRead = 0;
+
+                return false;
+            }
+
+            //Data out represents an underlying buffer (typically 32kb in size).
+            var buffer = new byte[dataOut.Length];
+            bytesRead = Stream.Read(buffer, 0, buffer.Length);
+
+            //If bytesRead is 0 then no point attempting a write to dataOut
+            if(bytesRead == 0)
+            {
+                return false;
+            }
+
+            dataOut.Write(buffer, 0, buffer.Length);
+
+            return bytesRead > 0;
+        }
+
+        bool IResourceHandler.CanGetCookie(Cookie cookie)
+        {
+            return true;
+        }
+
+        bool IResourceHandler.CanSetCookie(Cookie cookie)
+        {
+            return true;
+        }
+
+        void IResourceHandler.Cancel()
+        {
+            Cancel();
+
+            Stream = null;
+        }
+
+        /// <summary>
+        /// Gets the resource from the file path specified. Use the <see cref="ResourceHandler.GetMimeType"/>
+        /// helper method to lookup the mimeType if required. Uses CefStreamResourceHandler for reading the data
+        /// </summary>
+        /// <param name="filePath">Location of the file.</param>
+        /// <param name="mimeType">The mimeType if null then text/html is used.</param>
+        /// <returns>IResourceHandler.</returns>
+        public static IResourceHandler FromFilePath(string filePath, string mimeType = null)
+        {
+            return new FileResourceHandler(mimeType ?? DefaultMimeType, filePath);
+        }
+
+        /// <summary>
+        /// Creates a IResourceHandler that represents a Byte[], uses CefStreamResourceHandler for reading the data
+        /// </summary>
+        /// <param name="data">data</param>
+        /// <param name="mimeType">mimeType</param>
+        /// <returns>IResourceHandler</returns>
+        public static IResourceHandler FromByteArray(byte[] data, string mimeType = null)
+        {
+            return new ByteArrayResourceHandler(mimeType ?? DefaultMimeType, data);
         }
 
         /// <summary>
@@ -95,7 +253,7 @@ namespace CefSharp
         /// <param name="text">The text.</param>
         /// <param name="fileExtension">The file extension.</param>
         /// <returns>ResourceHandler.</returns>
-        public static ResourceHandler FromString(string text, string fileExtension)
+        public static IResourceHandler FromString(string text, string fileExtension)
         {
             var mimeType = GetMimeType(fileExtension);
             return FromString(text, Encoding.UTF8, false, mimeType);
@@ -110,13 +268,29 @@ namespace CefSharp
         /// <param name="includePreamble">Include encoding preamble</param>
         /// <param name="mimeType">Mime Type</param>
         /// <returns>ResourceHandler</returns>
-        public static ResourceHandler FromString(string text, Encoding encoding = null, bool includePreamble = true, string mimeType = DefaultMimeType)
+        public static IResourceHandler FromString(string text, Encoding encoding = null, bool includePreamble = true, string mimeType = DefaultMimeType)
         {
             if(encoding == null)
             {
                 encoding = Encoding.UTF8;
             }
-            return new ResourceHandler(mimeType, ResourceHandlerType.Stream) { Stream = GetStream(text, encoding, includePreamble) };
+            return new ByteArrayResourceHandler(mimeType, GetByteArray(text, encoding, includePreamble));
+        }
+
+        /// <summary>
+        /// Generates a ResourceHandler that has it's StatusCode set
+        /// </summary>
+        /// <param name="errorMessage">Body the response to be displayed</param>
+        /// <param name="statusCode">StatusCode</param>
+        /// <returns>ResourceHandler</returns>
+        public static IResourceHandler ForErrorMessage(string errorMessage, HttpStatusCode statusCode)
+        {
+            var stream = GetMemoryStream(errorMessage, Encoding.UTF8);
+
+            var resourceHandler = FromStream(stream);
+            resourceHandler.StatusCode = (int)statusCode;
+
+            return resourceHandler;
         }
 
         /// <summary>
@@ -127,10 +301,17 @@ namespace CefSharp
         /// <returns>ResourceHandler.</returns>
         public static ResourceHandler FromStream(Stream stream, string mimeType = DefaultMimeType)
         {
-            return new ResourceHandler(mimeType, ResourceHandlerType.Stream) { Stream = stream };
+            return new ResourceHandler(mimeType, stream);
         }
 
-        private static MemoryStream GetStream(string text, Encoding encoding, bool includePreamble)
+        /// <summary>
+        /// Gets a MemoryStream from the given string using the provided encoding
+        /// </summary>
+        /// <param name="text">string to be converted to a stream</param>
+        /// <param name="encoding">encoding</param>
+        /// <param name="includePreamble">if true a BOM will be written to the beginning of the stream</param>
+        /// <returns>A memory stream from the given string</returns>
+        public static MemoryStream GetMemoryStream(string text, Encoding encoding, bool includePreamble = true)
         {
             if (includePreamble)
             {
@@ -148,6 +329,33 @@ namespace CefSharp
             }
 
             return new MemoryStream(encoding.GetBytes(text));
+        }
+
+        /// <summary>
+        /// Gets a byteArray from the given string using the provided encoding
+        /// </summary>
+        /// <param name="text">string to be converted to a stream</param>
+        /// <param name="encoding">encoding</param>
+        /// <param name="includePreamble">if true a BOM will be written to the beginning of the stream</param>
+        /// <returns>A memory stream from the given string</returns>
+        public static byte[] GetByteArray(string text, Encoding encoding, bool includePreamble = true)
+        {
+            if (includePreamble)
+            {
+                var preamble = encoding.GetPreamble();
+                var bytes = encoding.GetBytes(text);
+
+                var memoryStream = new MemoryStream(preamble.Length + bytes.Length);
+
+                memoryStream.Write(preamble, 0, preamble.Length);
+                memoryStream.Write(bytes, 0, bytes.Length);
+
+                memoryStream.Position = 0;
+
+                return memoryStream.ToArray();
+            }
+
+            return encoding.GetBytes(text);
         }
 
         //TODO: Replace with call to CefGetMimeType (little difficult at the moment with no access to the CefSharp.Core class from here)
@@ -737,30 +945,16 @@ namespace CefSharp
             return Mappings.TryGetValue(extension, out mime) ? mime : "application/octet-stream";
         }
 
-        bool IResourceHandler.ProcessRequestAsync(IRequest request, ICallback callback)
+        /// <summary>
+        /// Dispose of resources here
+        /// </summary>
+        public virtual void Dispose()
         {
-            callback.Continue();
-
-            return true;
-        }
-
-        Stream IResourceHandler.GetResponse(IResponse response, out long responseLength, out string redirectUrl)
-        {
-            redirectUrl = null;
-            responseLength = -1;
-
-            response.MimeType = MimeType;
-            response.StatusCode = StatusCode;
-            response.StatusText = StatusText;
-            response.ResponseHeaders = Headers;
-
-            var memoryStream = Stream as MemoryStream;
-            if (memoryStream != null)
+            if(AutoDisposeStream && Stream != null)
             {
-                responseLength = memoryStream.Length;
+                Stream.Dispose();
+                Stream = null;
             }
-
-            return Stream;
         }
     }
 }

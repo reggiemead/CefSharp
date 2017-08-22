@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -8,7 +8,12 @@ using CefSharp.Internals;
 
 namespace CefSharp
 {
-    public class CefCustomScheme
+    /// <summary>
+    /// Used in conjunction with CefSettings.RegisterScheme to register a scheme.
+    /// You can register your own custom scheme e.g. custom:// or use an existing
+    /// scheme e.g. http://
+    /// </summary>
+    public sealed class CefCustomScheme
     {
         /// <summary>
         /// Schema Name e.g. custom
@@ -69,13 +74,35 @@ namespace CefSharp
         /// </summary>
         public bool IsDisplayIsolated { get; set; }
 
+        /// <summary>
+        /// If true the scheme will be treated with the same security
+        /// rules as those applied to "https" URLs. For example, loading this scheme
+        /// from other secure schemes will not trigger mixed content warnings.
+        /// </summary>
+        public bool IsSecure { get; set; }
+
+        /// <summary>
+        /// If true the scheme can be sent CORS requests.
+        /// This value should be true in most cases where IsStandard is true.
+        /// </summary>
+        public bool IsCorsEnabled { get; set; }
+
+        /// <summary>
+        /// Factory Class that creates <see cref="IResourceHandler"/> instances
+        /// for handling scheme requests.
+        /// </summary>
         public ISchemeHandlerFactory SchemeHandlerFactory { get; set; }
 
+        /// <summary>
+        /// Creates a new CefCustomScheme.
+        /// </summary>
         public CefCustomScheme()
         {
             IsStandard = true;
             IsLocal = false;
             IsDisplayIsolated = false;
+            IsSecure = true;
+            IsCorsEnabled = true;
         }
 
         /// <summary>
@@ -99,7 +126,9 @@ namespace CefSharp
                         SchemeName = tokens[0],
                         IsStandard = tokens[1] == "T",
                         IsLocal = tokens[2] == "T",
-                        IsDisplayIsolated = tokens[3] == "T"
+                        IsDisplayIsolated = tokens[3] == "T",
+                        IsSecure = tokens[4] == "T",
+                        IsCorsEnabled = tokens[5] == "T"
                     };
                     customSchemes.Add(customScheme);
                 });

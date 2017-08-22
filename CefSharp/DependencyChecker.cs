@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -16,20 +16,11 @@ namespace CefSharp
     /// </summary>
     public static class DependencyChecker
     {
+        /// <summary>
+        /// en-US Locales pak file location
+        /// </summary>
         public const string LocalesPackFile = @"locales\en-US.pak";
         
-        /// <summary>
-        /// IsWindowsXp - Special case for legacy XP support
-        /// </summary>
-        public static bool IsWindowsXp
-        {
-            get
-            {
-                var osVersion = Environment.OSVersion;
-                return osVersion.Platform == PlatformID.Win32NT && osVersion.Version.Major < 6;
-            }
-        }
-
         /// <summary>
         /// List of Cef Dependencies
         /// </summary>
@@ -66,7 +57,9 @@ namespace CefSharp
             // Note: Without these components HTML5 accelerated content like 2D canvas, 3D CSS and WebGL will not function.
             "libEGL.dll",
             "libGLESv2.dll",
-            (IsWindowsXp ? "d3dcompiler_43.dll" : "d3dcompiler_47.dll")
+            "d3dcompiler_47.dll",
+            //Crashpad support
+            "chrome_elf.dll"
         };
 
         /// <summary>
@@ -178,7 +171,7 @@ namespace CefSharp
         /// <param name="packLoadingDisabled">Is loading of pack files disabled?</param>
         /// <param name="browserSubProcessPath">The path to a separate executable that will be launched for sub-processes.</param>
         /// <exception cref="Exception">Throw when not all dependencies are present</exception>
-        public static void AssertAllDependenciesPresent(string locale, string localesDirPath, string resourcesDirPath, bool packLoadingDisabled, string browserSubProcessPath)
+        public static void AssertAllDependenciesPresent(string locale = null, string localesDirPath = null, string resourcesDirPath = null, bool packLoadingDisabled = false, string browserSubProcessPath = "CefSharp.BrowserSubProcess.exe")
         {
             var executingAssembly = Assembly.GetExecutingAssembly();
 

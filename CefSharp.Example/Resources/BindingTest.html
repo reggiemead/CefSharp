@@ -82,11 +82,23 @@
                         writeAsyncResult(call, end);
                     });
                 }
+
+                function asyncObjectArray()
+                {
+                    var call = "Async call (ObjectArray): " + Date();
+                    boundAsync.objectArray('CefSharp').then(function (res)
+                    {
+                        var end = "Result: [ " + res.map(function (item) { return item.Value }) + " ] (" + Date() + ")";
+                        writeAsyncResult(call, end);
+                    });
+                }
             
                 asyncError();
                 asyncDivOk();
                 asyncDivFail();
                 asyncDoSomething();
+                asyncHello();
+                asyncObjectArray();
             </script>
         </p>
         <p>
@@ -138,6 +150,34 @@
             <button onclick="testDisposedCallback()">Test Disposed Callback</button>
             <br />
             <span id="disposedcbresult"></span>
+        </p>
+
+        <p>
+            Javscript Callback Test using object as parameter
+            <br />
+            <script type="text/javascript">
+                function objectCallback(s)
+                {
+                    var result = document.getElementById('cbobjresult');
+                    result.innerText += "Callback: " + s + "" + Date();
+                }
+
+                function testCallbackWithObject()
+                {
+                    bound.testCallbackFromObject({
+                        Callback: objectCallback, TestString: "Hello", SubClasses: [
+                            { PropertyOne: "Test Property One", Numbers: [1, 2, 3] },
+                            { PropertyOne: "Test Property Two", Numbers: [4, 5, 6] }
+                        ]
+                    });
+
+                    var result = document.getElementById('cbobjresult');
+                    result.innerText = "The function has returned: " + Date() + "\n ...Waiting for callback response...";
+                }
+            </script>
+            <button onclick="testCallbackWithObject()">Test Callback with object param</button>
+            <br />
+            <span id="cbobjresult"></span>
         </p>
 
         <p>
@@ -237,5 +277,34 @@
                 }
             </script>
         </ul>
+        <p>
+            Javascript function sending variable number of parameters to Bound Object. (ParamArray Test)
+            <script type="text/javascript">
+                function str2ab(str)
+                {
+                    var buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
+                    var bufView = new Uint16Array(buf);
+                    for (var i = 0, strLen = str.length; i < strLen; i++)
+                    {
+                        bufView[i] = str.charCodeAt(i);
+                    }
+                    return buf;
+                }
+
+                document.write(bound.methodWithParams('With 1 Params', 'hello-world') + "<br/>");
+                document.write(bound.methodWithParams('With 2 Params', 'hello-world', 'chris was here') + "<br/>");
+                document.write(bound.methodWithParams('With no Params') + "<br/>");
+                document.write(bound.methodWithoutParams('Normal Method', 'hello') + "<br/>");
+                document.write(bound.methodWithoutAnything() + "<br/>");
+
+                document.write(bound.methodWithThreeParamsOneOptionalOneArray(null) + "<br/>");
+                document.write(bound.methodWithThreeParamsOneOptionalOneArray(null, null) + "<br/>");
+                document.write(bound.methodWithThreeParamsOneOptionalOneArray("Test", null) + "<br/>");
+                document.write(bound.methodWithThreeParamsOneOptionalOneArray(null, null, "Arg1", "Arg2") + "<br/>");
+
+                var buffer = str2ab("Testing array buffer");
+                document.write(bound.complexParamObject(buffer));
+            </script>
+        </p>
     </body>
 </html>

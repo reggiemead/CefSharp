@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -10,14 +10,19 @@ using CefSharp.WinForms.Example.Handlers;
 using CefSharp.WinForms.Internals;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace CefSharp.WinForms.Example
 {
     public partial class BrowserTabUserControl : UserControl
     {
         public IWinFormsWebBrowser Browser { get; private set; }
+        private IntPtr browserHandle;
+        private ChromeWidgetMessageInterceptor messageInterceptor;
+        private bool multiThreadedMessageLoopEnabled;
 
-        public BrowserTabUserControl(Action<string, int?> openNewTab, string url)
+        public BrowserTabUserControl(Action<string, int?> openNewTab, string url, bool multiThreadedMessageLoopEnabled)
         {
             InitializeComponent();
 
@@ -35,8 +40,11 @@ namespace CefSharp.WinForms.Example
             browser.JsDialogHandler = new JsDialogHandler();
             browser.GeolocationHandler = new GeolocationHandler();
             browser.DownloadHandler = new DownloadHandler();
-            browser.KeyboardHandler = new KeyboardHandler();
-            //browser.LifeSpanHandler = new LifeSpanHandler();
+            if (multiThreadedMessageLoopEnabled)
+            {
+                browser.KeyboardHandler = new KeyboardHandler();
+            }
+            browser.LifeSpanHandler = new LifeSpanHandler();
             browser.LoadingStateChanged += OnBrowserLoadingStateChanged;
             browser.ConsoleMessage += OnBrowserConsoleMessage;
             browser.TitleChanged += OnBrowserTitleChanged;
@@ -44,22 +52,58 @@ namespace CefSharp.WinForms.Example
             browser.StatusMessage += OnBrowserStatusMessage;
             browser.IsBrowserInitializedChanged += OnIsBrowserInitializedChanged;
             browser.LoadError += OnLoadError;
-            browser.DragHandler = new DragHandler();
             browser.RegisterJsObject("bound", new BoundObject());
             browser.RegisterAsyncJsObject("boundAsync", new AsyncBoundObject());
             browser.RenderProcessMessageHandler = new RenderProcessMessageHandler();
+            browser.DisplayHandler = new DisplayHandler();
+            //browser.MouseDown += OnBrowserMouseClick;
+            browser.HandleCreated += OnBrowserHandleCreated;
             //browser.ResourceHandlerFactory = new FlashResourceHandlerFactory();
+            this.multiThreadedMessageLoopEnabled = multiThreadedMessageLoopEnabled;
 
             var eventObject = new ScriptedMethodsBoundObject();
             eventObject.EventArrived += OnJavascriptEventArrived;
             // Use the default of camelCaseJavascriptNames
             // .Net methods starting with a capitol will be translated to starting with a lower case letter when called from js
-            browser.RegisterJsObject("boundEvent", eventObject, camelCaseJavascriptNames:true);
+            browser.RegisterJsObject("boundEvent", eventObject, BindingOptions.DefaultBinder);
 
             CefExample.RegisterTestResources(browser);
 
             var version = String.Format("Chromium: {0}, CEF: {1}, CefSharp: {2}", Cef.ChromiumVersion, Cef.CefVersion, Cef.CefSharpVersion);
             DisplayOutput(version);
+        }
+
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (components != null)
+                {
+                    components.Dispose();
+                    components = null;
+                }
+
+                if (messageInterceptor != null)
+                {
+                    messageInterceptor.ReleaseHandle();
+                    messageInterceptor = null;
+                }
+            }
+            base.Dispose(disposing);
+        }
+
+        private void OnBrowserHandleCreated(object sender, EventArgs e)
+        {
+            browserHandle = ((ChromiumWebBrowser)Browser).Handle;
+        }
+
+        private void OnBrowserMouseClick(object sender, MouseEventArgs e)
+        {
+            MessageBox.Show("Mouse Clicked" + e.X + ";" + e.Y + ";" + e.Button);
         }
 
         private void OnLoadError(object sender, LoadErrorEventArgs args)
@@ -82,7 +126,7 @@ namespace CefSharp.WinForms.Example
             SetCanGoBack(args.CanGoBack);
             SetCanGoForward(args.CanGoForward);
 
-            this.InvokeOnUiThreadIfRequired(() => SetIsLoading(!args.CanReload));
+            this.InvokeOnUiThreadIfRequired(() => SetIsLoading(args.IsLoading));
         }
 
         private void OnBrowserTitleChanged(object sender, TitleChangedEventArgs args)
@@ -144,54 +188,98 @@ namespace CefSharp.WinForms.Example
         {
             if (args.IsBrowserInitialized)
             {
-                ChromeWidgetMessageInterceptor.SetupLoop((ChromiumWebBrowser)Browser, (message) =>
+                //Get the underlying browser host wrapper
+                var browserHost = Browser.GetBrowser().GetHost();
+                var requestContext = browserHost.RequestContext;
+                string errorMessage;
+                // Browser must be initialized before getting/setting preferences
+                var success = requestContext.SetPreference("enable_do_not_track", true, out errorMessage);
+                if(!success)
                 {
-                    const int WM_MOUSEACTIVATE = 0x0021;
-                    const int WM_NCLBUTTONDOWN = 0x00A1;
+                    this.InvokeOnUiThreadIfRequired(() => MessageBox.Show("Unable to set preference enable_do_not_track errorMessage: " + errorMessage));
+                }
 
-                    if (message.Msg == WM_MOUSEACTIVATE) {
-                        // The default processing of WM_MOUSEACTIVATE results in MA_NOACTIVATE,
-                        // and the subsequent mouse click is eaten by Chrome.
-                        // This means any .NET ToolStrip or ContextMenuStrip does not get closed.
-                        // By posting a WM_NCLBUTTONDOWN message to a harmless co-ordinate of the
-                        // top-level window, we rely on the ToolStripManager's message handling
-                        // to close any open dropdowns:
-                        // http://referencesource.microsoft.com/#System.Windows.Forms/winforms/Managed/System/WinForms/ToolStripManager.cs,1249
-                        var topLevelWindowHandle = message.WParam;
-                        PostMessage(topLevelWindowHandle, WM_NCLBUTTONDOWN, IntPtr.Zero, IntPtr.Zero);
-                    }
+                //Example of disable spellchecking
+                //success = requestContext.SetPreference("browser.enable_spellchecking", false, out errorMessage);
 
-                    // The ChromiumWebBrowserControl does not fire MouseEnter/Move/Leave events, because Chromium handles these.
-                    // However we can hook into Chromium's messaging window to receive the events.
-                    //
-                    //const int WM_MOUSEMOVE = 0x0200;
-                    //const int WM_MOUSELEAVE = 0x02A3;
-                    //
-                    //switch (message.Msg) {
-                    //    case WM_MOUSEMOVE:
-                    //        Console.WriteLine("WM_MOUSEMOVE");
-                    //        break;
-                    //    case WM_MOUSELEAVE:
-                    //        Console.WriteLine("WM_MOUSELEAVE");
-                    //        break;
-                    //}
-                });
+                var preferences = requestContext.GetAllPreferences(true);
+                var doNotTrack = (bool)preferences["enable_do_not_track"];
+
+                //Use this to check that settings preferences are working in your code
+                //success = requestContext.SetPreference("webkit.webprefs.minimum_font_size", 24, out errorMessage);
+
+                //If we're using CefSetting.MultiThreadedMessageLoop (the default) then to hook the message pump,
+                // which running in a different thread we have to use a NativeWindow
+                if (multiThreadedMessageLoopEnabled)
+                {
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            while (true)
+                            {
+                                IntPtr chromeWidgetHostHandle;
+                                if (ChromeWidgetHandleFinder.TryFindHandle(browserHandle, out chromeWidgetHostHandle))
+                                {
+                                    messageInterceptor = new ChromeWidgetMessageInterceptor((Control)Browser, chromeWidgetHostHandle, message =>
+                                    {
+                                        const int WM_MOUSEACTIVATE = 0x0021;
+                                        const int WM_NCLBUTTONDOWN = 0x00A1;
+                                        const int WM_LBUTTONDOWN = 0x0201;
+
+                                        if (message.Msg == WM_MOUSEACTIVATE)
+                                        {
+                                            // The default processing of WM_MOUSEACTIVATE results in MA_NOACTIVATE,
+                                            // and the subsequent mouse click is eaten by Chrome.
+                                            // This means any .NET ToolStrip or ContextMenuStrip does not get closed.
+                                            // By posting a WM_NCLBUTTONDOWN message to a harmless co-ordinate of the
+                                            // top-level window, we rely on the ToolStripManager's message handling
+                                            // to close any open dropdowns:
+                                            // http://referencesource.microsoft.com/#System.Windows.Forms/winforms/Managed/System/WinForms/ToolStripManager.cs,1249
+                                            var topLevelWindowHandle = message.WParam;
+                                            PostMessage(topLevelWindowHandle, WM_NCLBUTTONDOWN, IntPtr.Zero, IntPtr.Zero);
+                                        }
+                                        //Forward mouse button down message to browser control
+                                        //else if(message.Msg == WM_LBUTTONDOWN)
+                                        //{
+                                        //    PostMessage(browserHandle, WM_LBUTTONDOWN, message.WParam, message.LParam);
+                                        //}
+
+                                        // The ChromiumWebBrowserControl does not fire MouseEnter/Move/Leave events, because Chromium handles these.
+                                        // However we can hook into Chromium's messaging window to receive the events.
+                                        //
+                                        //const int WM_MOUSEMOVE = 0x0200;
+                                        //const int WM_MOUSELEAVE = 0x02A3;
+                                        //
+                                        //switch (message.Msg) {
+                                        //    case WM_MOUSEMOVE:
+                                        //        Console.WriteLine("WM_MOUSEMOVE");
+                                        //        break;
+                                        //    case WM_MOUSELEAVE:
+                                        //        Console.WriteLine("WM_MOUSELEAVE");
+                                        //        break;
+                                        //}
+                                    });
+
+                                    break;
+                                }
+                                else
+                                {
+                                    // Chrome hasn't yet set up its message-loop window.
+                                    Thread.Sleep(10);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Errors are likely to occur if browser is disposed, and no good way to check from another thread
+                        }
+                    });
+                }
             }
         }
 
-        public void ExecuteScript(string script)
-        {
-            Browser.ExecuteScriptAsync(script);
-        }
-
-        public object EvaluateScript(string script)
-        {
-            var task = Browser.EvaluateScriptAsync(script);
-            task.Wait();
-            return task.Result;
-        }
-
-        public void DisplayOutput(string output)
+        private void DisplayOutput(string output)
         {
             this.InvokeOnUiThreadIfRequired(() => outputLabel.Text = output);
         }

@@ -14,9 +14,6 @@
     <ClInclude Include="Stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CefAppWrapper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="JavascriptMethodHandler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -86,15 +83,21 @@
     <ClInclude Include="Serialization\JsObjectsSerialization.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SubProcess.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WcfEnabledSubProcess.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CefAppWrapper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TypeUtils.cpp">
@@ -145,8 +148,14 @@
     <ClCompile Include="Serialization\JsObjectsSerialization.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="WcfEnabledSubProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
 </Project>

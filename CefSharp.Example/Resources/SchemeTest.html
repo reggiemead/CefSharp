@@ -18,29 +18,12 @@
             htmlNode.innerHTML += "<p>" + text + "</p>";
         };
 
-        var doRequest = function (data, contentType)
+        var doRequest = function ()
         {
-            var x = new XMLHttpRequest();
-            x.open("POST", "custom://cefsharp/PostDataAjaxTest.html");
-            x.setRequestHeader("Accept", "application/json, text/javascript");
-            x.setRequestHeader("Content-Type", "application/json");
-
-            x.onreadystatechange = function (event)
+            $.post("https://cefsharp.com/PostDataAjaxTest.html", $("#testForm").serialize()).done(function (data)
             {
-                if (x.readyState !== 4)
-                {
-                    return;
-                }
-
-                showError(x.responseText);
-            };
-
-            x.onerror = function (e)
-            {
-                showError(e);
-            };
-
-            x.send(data);
+                showError(data);
+            });
         };
     </script>
 </head>
@@ -48,7 +31,7 @@
     <h1>Success</h1>
     <p>Scheme Handler Functioned Correctly</p>
 
-    <form action="custom://cefsharp/PostDataTest.html" method="post" target="_blank">
+    <form id="testForm" action="https://cefsharp.com/PostDataTest.html" method="post" target="_blank">
         User:<input type="text" name="user" value="lion" />
         <br>
         Pass:<input type="text" name="pass" value="123" />
@@ -57,6 +40,8 @@
     </form>
 
     <h1>Custom Post using Ajax</h1>
-    <button onclick="doRequest('name=test&value=anotherValue'); return false;">Submit via ajax</button>
+    <button onclick="doRequest(); return false;">Submit via ajax</button>
+
+    <script src="assets/js/jquery.js"></script>
 </body>
 </html>

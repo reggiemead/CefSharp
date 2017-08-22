@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Project. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -138,6 +138,19 @@ Task<String^>^ CefFrameWrapper::GetSourceAsync()
 }
 
 ///
+// Retrieve this frame's HTML source as a string sent to the specified
+// visitor.
+///
+/*--cef()--*/
+void CefFrameWrapper::GetSource(IStringVisitor^ visitor)
+{
+    ThrowIfDisposed();
+    ThrowIfFrameInvalid();
+
+    _frame->GetSource(new StringVisitor(visitor));
+}
+
+///
 // Retrieve this frame's display text as a string sent to the specified
 // visitor.
 ///
@@ -152,7 +165,20 @@ Task<String^>^ CefFrameWrapper::GetTextAsync()
     return taskStringVisitor->Task;
 }
 
-// TODO: Do we need this?
+///
+// Retrieve this frame's display text as a string sent to the specified
+// visitor.
+///
+/*--cef()--*/
+void CefFrameWrapper::GetText(IStringVisitor^ visitor)
+{
+    ThrowIfDisposed();
+    ThrowIfFrameInvalid();
+
+    _frame->GetText(new StringVisitor(visitor));
+}
+
+
 ///
 // Load the request represented by the |request| object.
 ///
@@ -208,7 +234,7 @@ void CefFrameWrapper::ExecuteJavaScriptAsync(String^ code, String^ scriptUrl, in
     _frame->ExecuteJavaScript(StringUtils::ToNative(code), StringUtils::ToNative(scriptUrl), startLine);
 }
 
-Task<JavascriptResponse^>^ CefFrameWrapper::EvaluateScriptAsync(String^ script, Nullable<TimeSpan> timeout)
+Task<JavascriptResponse^>^ CefFrameWrapper::EvaluateScriptAsync(String^ script, String^ scriptUrl, int startLine, Nullable<TimeSpan> timeout)
 {
     ThrowIfDisposed();
     ThrowIfFrameInvalid();
@@ -218,7 +244,7 @@ Task<JavascriptResponse^>^ CefFrameWrapper::EvaluateScriptAsync(String^ script, 
 
     auto cefClient = static_cast<CefClientSafeType<ClientAdapter>*>(host->GetClient().get());
 
-    return (*cefClient)->EvaluateScriptAsync(browser->GetIdentifier(), browser->IsPopup(), _frame->GetIdentifier(), script, timeout);
+    return (*cefClient)->EvaluateScriptAsync(browser->GetIdentifier(), browser->IsPopup(), _frame->GetIdentifier(), script, scriptUrl, startLine, timeout);
 }
 
 ///

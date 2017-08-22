@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -61,13 +61,20 @@ namespace CefSharp
             IBrowser^ result = nullptr;
             if (_browserAdapter->IsAlive)
             {
-                auto browserAdapter = static_cast<ManagedCefBrowserAdapter^>(_browserAdapter->Target);
+                auto browserAdapter = static_cast<IBrowserAdapter^>(_browserAdapter->Target);
                 if (!browserAdapter->IsDisposed)
                 {
                     result = browserAdapter->GetBrowser(_callback->BrowserId);
                 }
             }
             return result;
+        }
+
+        Int64 JavascriptCallbackProxy::Id::get()
+        {
+            DisposedGuard();
+
+            return _callback->Id;
         }
 
         bool JavascriptCallbackProxy::IsDisposed::get()

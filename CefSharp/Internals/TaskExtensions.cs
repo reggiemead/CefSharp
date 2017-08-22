@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -86,6 +86,18 @@ namespace CefSharp.Internals
             }, null, timeout, TimeSpan.FromMilliseconds(-1));
 
             return taskCompletionSource;
+        }
+
+        /// <summary>
+        /// Set the TaskCompletionSource in an async fashion. This prevents the Task Continuation being executed sync on the same thread
+        /// This is required otherwise contintinuations will happen on CEF UI threads
+        /// </summary>
+        /// <typeparam name="TResult">Generic param</typeparam>
+        /// <param name="taskCompletionSource">tcs</param>
+        /// <param name="result">result</param>
+        public static void TrySetResultAsync<TResult>(this TaskCompletionSource<TResult> taskCompletionSource, TResult result)
+        {
+            Task.Factory.StartNew(delegate { taskCompletionSource.TrySetResult(result); }, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.Default);
         }
     }
 }

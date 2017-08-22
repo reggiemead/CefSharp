@@ -1,9 +1,9 @@
-##CefSharp Project Contribution Guide
+## CefSharp Project Contribution Guide
 Thanks for your interest in contributing to the project! Please follow these simple guidelines:
 
 ### General
 - Please use [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/cefsharp/CefSharp?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) as your first point of call for basic/simple questions.
-- When creating an issue please [click this link](https://github.com/CefSharp/CefSharp/issues/new?title=Bug%3A&body=%23%23%23%23+Issue+Summary%0D%0AWhat+is+the+expected+output%3F+What+do+you+see+instead%3F%0D%0A%0D%0A%23%23%23%23+Steps+to+Reproduce%0D%0A1.+This+is+the+first+step%0D%0A%0D%0AThis+is+a+bug+because...%0D%0ACode+sample+if+relevant%0D%0ADoes+this+problem+also+occur+in+the+%60Cef%60+TestApp+from+http%3A%2F%2Fcefbuilds.com%3F%0D%0A%0D%0A%23%23%23%23+Technical+details%0D%0A%2A+CefSharp+Version%3A+nuget+-+master+-+latest+commit%3A++INSERT+COMMIT+REF%0D%0A%2A+Operating+System%3A+%0D%0A%2A+x86%2Fx64%3A+%0D%0A%2A+WinForms%2FWPF%2FOffScreen%3A+) to use our `Issue Template`
+- When creating an issue please use the issue template provided.
 - **Please read the full contents of [the FAQ](https://github.com/cefsharp/CefSharp/wiki/Frequently-asked-questions) before submitting an issue**. Also searching the `GitHub` project is a **must**. It's quite likely your question has already been answered before. If something is unclear in the FAQ, of course feel free to ask; the idea is just to reduce the level of "noise" we have to go through, reading the same questions over and over again.
 - Please make sure to **test out the current version** of `CefSharp` to see whether the problem you are encountering still exists.
 - Don't cross-post: if you create an issue, and all the information is contained there, that's enough. There's no reason to also post it to Stackoverflow; it just creates "line noise". The project maintainers are very busy people like you and me, and things will sometimes take a few weeks (or in worst case, more) to answer. If you are in a rush - do your very best to investigate the problem thoroughly; if possible, fix the bug yourself and submit a pull request.
@@ -11,22 +11,22 @@ Thanks for your interest in contributing to the project! Please follow these sim
 - We do appreciate cultural/languages differences, that being said **never** demand that someone help you, this is not a commercial application with paid support! Please and thank you go a long way.
 - This is a volunteer project, we give of our time freely and we ask for you to do the same. Contributions can be simple like updating/adding new entries in the [FAQ](https://github.com/cefsharp/CefSharp/wiki/Frequently-asked-questions), creating new pages in the [WIKI](https://github.com/cefsharp/CefSharp/wiki), updating the examples. (Anyone with a `GitHub` account can edit the `WIKI`)
 
-### `CefSharp` vs `CEF`
+### `CefSharp` vs `Chromium Embedded Framework(CEF)`
 
 `CefSharp` simply takes the building blocks provided by `CEF` and attempts to provide a usable '.Net' implementation.
 The upstream [`CEF` forum](http://magpcss.org/ceforum/) is a valuable resource, if your issues seems fairly low level, then please conduct some research before posting.
 
 It maybe helpful to run the `cefclient` application and compare output with `CefSharp`. The `WinForms` and `WPF` versions use two different rendering modes, `WPF` uses Offscreen Rendering (`OSR`). `OffScreen` also uses `OSR` mode.
 
-- Download **Test App** from http://cefbuilds.com
+- Download **Test App** from http://opensource.spotify.com/cefbuilds/index.html ( or http://cefbuilds.com for older versions)
 - To compare with WPF run `cefclient --multi-threaded-message-loop --off-screen-rendering-enabled`
 - To compare with WinForms `cefclient --multi-threaded-message-loop`
 
-To determine which version of `CEF` your build is running, open `chrome://version` and you'll see a number similar to `3.2062.1898`, in this case `2062` represents the branch which corresponds to http://cefbuilds.com/#branch_2062
+To determine which version of `CEF` your build is running, open `chrome://version` and you'll see a number similar to `3.2987.1597.gffc5773`. Open http://opensource.spotify.com/cefbuilds/index.html and download the `Sample Application` that exactly matches. If your using an older build click `Show More Builds`.
 
 ### What should I include when creating an `Issue`?
 
-Use the **Bug Report template** below or [click this link](https://github.com/CefSharp/CefSharp/issues/new?title=Bug%3A&body=%23%23%23%23+Issue+Summary%0D%0AWhat+is+the+expected+output%3F+What+do+you+see+instead%3F%0D%0A%0D%0A%23%23%23%23+Steps+to+Reproduce%0D%0A1.+This+is+the+first+step%0D%0A%0D%0AThis+is+a+bug+because...%0D%0ACode+sample+if+relevant%0D%0ADoes+this+problem+also+occur+in+the+%60Cef%60+TestApp+from+http%3A%2F%2Fcefbuilds.com%3F%0D%0A%0D%0A%23%23%23%23+Technical+details%0D%0A%2A+CefSharp+Version%3A+nuget+-+master+-+latest+commit%3A++INSERT+COMMIT+REF%0D%0A%2A+Operating+System%3A+%0D%0A%2A+x86%2Fx64%3A+%0D%0A%2A+WinForms%2FWPF%2FOffScreen%3A+) to start creating a bug report with the template automatically.
+When creating an issue please use the provided by report template (the field will be pre-populated).
 
 A bug is a _demonstrable problem_ that is caused by the code in the repository. Ideally each issue is a useful resource for references purposes (Don't take offence if someone edits your description).
 
@@ -42,7 +42,7 @@ Your bug report should **always follow this template**:
     - A stack trace if available, any Exception information.
     - Does the cef log provide any relevant information? (By default there should be a debug.log file in your bin directory)
 - Any other background information that's relevant? Are you doing something out of the ordinary? 3rd party controls?
-- **Does this problem also occur in the `Cef` TestApp from http://cefbuilds.com?**
+- **Does this problem also occur in the `CEF Sample Application` from http://opensource.spotify.com/cefbuilds/index.html?**
 
 Your bug report should include **what you were doing** in the software when you encountered it, **what you were expecting** to happen and **what happened instead**.
 

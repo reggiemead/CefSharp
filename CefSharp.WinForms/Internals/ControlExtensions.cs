@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -7,6 +7,9 @@ using System.Windows.Forms;
 
 namespace CefSharp.WinForms.Internals
 {
+    /// <summary>
+    /// ControlExtensions.
+    /// </summary>
     public static class ControlExtensions
     {
         /// <summary>
@@ -26,6 +29,11 @@ namespace CefSharp.WinForms.Internals
             }
         }
 
+        /// <summary>
+        /// Activates the specified control.
+        /// </summary>
+        /// <param name="control">The control.</param>
+        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise.</returns>
         public static bool Activate(this Control control)
         {
             // Notify WinForms world that inner browser window got focus. This will trigger Leave event to previous focused control
@@ -45,7 +53,13 @@ namespace CefSharp.WinForms.Internals
         /// <returns>true if the control is the currently active control</returns>
         public static bool IsActiveControl(this Control control)
         {
-            Control activeControl = control.FindForm().ActiveControl;
+            Form form = control.FindForm();
+            if (form == null)
+             {
+                 return false;
+             }
+ 
+            Control activeControl = form.ActiveControl;
             while (activeControl != null
                    && (activeControl is ContainerControl)
                    && !Object.ReferenceEquals(control, activeControl))
@@ -56,6 +70,11 @@ namespace CefSharp.WinForms.Internals
             return Object.ReferenceEquals(control, activeControl);
         }
 
+        /// <summary>
+        /// Selects the next control.
+        /// </summary>
+        /// <param name="control">The control.</param>
+        /// <param name="next">if set to <c>true</c> [next].</param>
         public static void SelectNextControl(this Control control, bool next)
         {
             var containerControl = control.GetContainerControl();

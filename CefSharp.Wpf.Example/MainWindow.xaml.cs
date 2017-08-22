@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -107,6 +107,40 @@ namespace CefSharp.Wpf.Example
                 {
                     browserViewModel.LoadCustomRequestExample();
                 }
+
+                if(param == "OpenDevTools")
+                {
+                    browserViewModel.WebBrowser.ShowDevTools();
+                }
+
+                if (param == "ZoomIn")
+                {
+                    var cmd = browserViewModel.WebBrowser.ZoomInCommand;
+                    cmd.Execute(null);
+                }
+
+                if (param == "ZoomOut")
+                {
+                    var cmd = browserViewModel.WebBrowser.ZoomOutCommand;
+                    cmd.Execute(null);
+                }
+
+                if (param == "ZoomReset")
+                {
+                    var cmd = browserViewModel.WebBrowser.ZoomResetCommand;
+                    cmd.Execute(null);
+                }
+
+                if (param == "ToggleSidebar")
+                {
+                    browserViewModel.ShowSidebar = !browserViewModel.ShowSidebar;
+                }
+
+                if (param == "ToggleDownloadInfo")
+                {
+                    browserViewModel.ShowDownloadInfo = !browserViewModel.ShowDownloadInfo;
+                }
+
                 //NOTE: Add as required
                 //else if (param == "CustomRequest123")
                 //{

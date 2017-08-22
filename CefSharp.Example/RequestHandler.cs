@@ -1,8 +1,12 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 using System;
+using CefSharp.Example.Filters;
+using System.Security.Cryptography.X509Certificates;
+using System.Collections.Generic;
+using System.Text;
 
 namespace CefSharp.Example
 {
@@ -10,6 +14,8 @@ namespace CefSharp.Example
     {
         public static readonly string VersionNumberString = String.Format("Chromium: {0}, CEF: {1}, CefSharp: {2}",
             Cef.ChromiumVersion, Cef.CefVersion, Cef.CefSharpVersion);
+
+        private Dictionary<UInt64, MemoryStreamResponseFilter> responseDictionary = new Dictionary<UInt64, MemoryStreamResponseFilter>();
 
         bool IRequestHandler.OnBeforeBrowse(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, bool isRedirect)
         {
@@ -54,19 +60,29 @@ namespace CefSharp.Example
 
         CefReturnValue IRequestHandler.OnBeforeResourceLoad(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, IRequestCallback callback)
         {
+            Uri url;
+            if (Uri.TryCreate(request.Url, UriKind.Absolute, out url) == false)
+            {
+                throw new Exception("Request to \"" + request.Url + "\" can't continue, not a valid URI");
+            }
+            
             //Example of how to set Referer
             // Same should work when setting any header
 
             // For this example only set Referer when using our custom scheme
-            var url = new Uri(request.Url);
             if (url.Scheme == CefSharpSchemeHandlerFactory.SchemeName)
             {
-                var headers = request.Headers;
-
-                headers["Referer"] = "http://google.com";
-
-                request.Headers = headers;
+                //Referrer is now set using it's own method (was previously set in headers before)
+                request.SetReferrer("http://google.com", ReferrerPolicy.Default);
             }
+
+            //Example of setting User-Agent in every request.
+            //var headers = request.Headers;
+
+            //var userAgent = headers["User-Agent"];
+            //headers["User-Agent"] = userAgent + " CefSharp";
+
+            //request.Headers = headers;
 
             //NOTE: If you do not wish to implement this method returning false is the default behaviour
             // We also suggest you explicitly Dispose of the callback as it wraps an unmanaged resource.
@@ -123,6 +139,20 @@ namespace CefSharp.Example
             return false;
         }
 
+        bool IRequestHandler.OnSelectClientCertificate(IWebBrowser browserControl, IBrowser browser, bool isProxy, string host, int port, X509Certificate2Collection certificates, ISelectClientCertificateCallback callback)
+        {
+            //NOTE: If you do not wish to implement this method returning false is the default behaviour
+            // We also suggest you explicitly Dispose of the callback as it wraps an unmanaged resource.
+
+            return OnSelectClientCertificate(browserControl, browser, isProxy, host, port, certificates, callback);
+        }
+
+        protected virtual bool OnSelectClientCertificate(IWebBrowser browserControl, IBrowser browser, bool isProxy, string host, int port, X509Certificate2Collection certificates, ISelectClientCertificateCallback callback)
+        {
+            callback.Dispose();
+            return false;
+        }
+
         void IRequestHandler.OnRenderProcessTerminated(IWebBrowser browserControl, IBrowser browser, CefTerminationStatus status)
         {
             // TODO: Add your own code here for handling scenarios where the Render Process terminated for one reason or another.
@@ -150,12 +180,12 @@ namespace CefSharp.Example
             return false;
         }
 
-        void IRequestHandler.OnResourceRedirect(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, ref string newUrl)
+        void IRequestHandler.OnResourceRedirect(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, IResponse response, ref string newUrl)
         {
             //Example of how to redirect - need to check `newUrl` in the second pass
-            //if (string.Equals(frame.GetUrl(), "https://www.google.com/", StringComparison.OrdinalIgnoreCase) && !newUrl.Contains("github"))
+            //if (request.Url.StartsWith("https://www.google.com", StringComparison.OrdinalIgnoreCase) && !newUrl.Contains("github"))
             //{
-            //	newUrl = "https://github.com";
+            //    newUrl = "https://github.com";
             //}
         }
 
@@ -178,9 +208,46 @@ namespace CefSharp.Example
             return false;
         }
 
+        IResponseFilter IRequestHandler.GetResourceResponseFilter(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, IResponse response)
+        {
+            var url = new Uri(request.Url);
+            if (url.Scheme == CefSharpSchemeHandlerFactory.SchemeName)
+            {
+                if(request.Url.Equals(CefExample.ResponseFilterTestUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new FindReplaceResponseFilter("REPLACE_THIS_STRING", "This is the replaced string!");
+                }
+
+                if (request.Url.Equals("custom://cefsharp/assets/js/jquery.js", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new AppendResponseFilter(System.Environment.NewLine + "//CefSharp Appended this comment.");
+                }
+
+                //Only called for our customScheme
+                var dataFilter = new MemoryStreamResponseFilter();
+                responseDictionary.Add(request.Identifier, dataFilter);
+                return dataFilter;
+            }
+
+            //return new PassThruResponseFilter();
+            return null;
+        }
+
         void IRequestHandler.OnResourceLoadComplete(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, IResponse response, UrlRequestStatus status, long receivedContentLength)
         {
-            
+            var url = new Uri(request.Url);
+            if (url.Scheme == CefSharpSchemeHandlerFactory.SchemeName)
+            {
+                MemoryStreamResponseFilter filter;
+                if(responseDictionary.TryGetValue(request.Identifier, out filter))
+                {
+                    //TODO: Do something with the data here
+                    var data = filter.Data;
+                    var dataLength = filter.Data.Length;
+                    //NOTE: You may need to use a different encoding depending on the request
+                    var dataAsUtf8String = Encoding.UTF8.GetString(data);                
+                }
+            }
         }
     }
 }

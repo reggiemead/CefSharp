@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -6,7 +6,10 @@ using System;
 
 namespace CefSharp
 {
-    public class DownloadItem
+    /// <summary>
+    /// Class used to represent a download item.
+    /// </summary>
+    public sealed class DownloadItem
     {
         /// <summary>
         /// Returns true if this object is valid. Do not call any other methods if this function returns false.
@@ -72,6 +75,11 @@ namespace CefSharp
         /// Returns the URL.
         /// </summary>
         public string Url { get; set; }
+
+        /// <summary>
+        /// Returns the URL as it was before any redirects.
+        /// </summary>
+        public string OriginalUrl { get; set; }
 
         /// <summary>
         /// Returns the suggested file name.

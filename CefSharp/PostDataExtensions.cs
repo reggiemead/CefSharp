@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -140,6 +140,25 @@ namespace CefSharp
             var element = postData.CreatePostDataElement();
 
             element.Bytes = encoding.GetBytes(data);
+
+            postData.AddElement(element);
+        }
+
+        /// <summary>
+        /// Add a new <see cref="IPostDataElement"/> that represents the key and value
+        /// </summary>
+        /// <param name="postData">Post Data</param>
+        /// <param name="bytes">byte array that represents the post data</param>
+        public static void AddData(this IPostData postData, byte[] bytes)
+        {
+            if (bytes == null)
+            {
+                throw new ArgumentNullException("bytes");
+            }
+
+            var element = postData.CreatePostDataElement();
+
+            element.Bytes = bytes;
 
             postData.AddElement(element);
         }
