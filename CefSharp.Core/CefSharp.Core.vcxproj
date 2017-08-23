@@ -346,7 +346,6 @@
   <ItemGroup>
     <Text Include="handlers.txt" />
   </ItemGroup>
-    </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
