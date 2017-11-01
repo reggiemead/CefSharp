@@ -284,10 +284,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Resource.rc" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="handlers.txt" />
