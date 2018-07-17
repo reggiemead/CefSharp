@@ -63,7 +63,7 @@ namespace CefSharp.Prebuild
         private static void RunClassVisitor()
         {
             var index = CreateIndex();
-            foreach (var translationUnit in index.TranslationUnits)
+            foreach (var translationUnit in index.TranslationUnits.ToList())
             {
                 translationUnit.Cursor.VisitChildren(ClassVisitor.Visit);
             }
