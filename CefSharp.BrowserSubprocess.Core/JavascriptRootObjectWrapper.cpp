@@ -1,4 +1,4 @@
-// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright Â© 2014 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -12,38 +12,35 @@ using namespace System::Threading;
 
 namespace CefSharp
 {
-    void JavascriptRootObjectWrapper::Bind(JavascriptRootObject^ rootObject, JavascriptRootObject^ asyncRootObject, const CefRefPtr<CefV8Value>& v8Value)
+    void JavascriptRootObjectWrapper::Bind(ICollection<JavascriptObject^>^ objects, const CefRefPtr<CefV8Value>& v8Value)
     {
-        if (_isBound)
+        if (objects->Count > 0)
         {
-            throw gcnew InvalidOperationException("This root object has already been bound.");
-        }
-
-        _isBound = true;
-
-        if (rootObject != nullptr)
-        {
-            auto memberObjects = rootObject->MemberObjects;
-            for each (JavascriptObject^ obj in Enumerable::OfType<JavascriptObject^>(memberObjects))
-            {
-                auto wrapperObject = gcnew JavascriptObjectWrapper(_browserProcess);
-                wrapperObject->Bind(obj, v8Value, _callbackRegistry);
-
-                _wrappedObjects->Add(wrapperObject);
-            }
-        }
-
-        if (asyncRootObject != nullptr)
-        {
-            auto memberObjects = asyncRootObject->MemberObjects;
             auto saveMethod = gcnew Func<JavascriptAsyncMethodCallback^, int64>(this, &JavascriptRootObjectWrapper::SaveMethodCallback);
-            auto promiseCreator = v8Value->GetValue(CefAppUnmanagedWrapper::kPromiseCreatorFunction);
-            for each (JavascriptObject^ obj in Enumerable::OfType<JavascriptObject^>(memberObjects))
-            {
-                auto wrapperObject = gcnew JavascriptAsyncObjectWrapper(_callbackRegistry, saveMethod);
-                wrapperObject->Bind(obj, v8Value, promiseCreator);
 
-                _wrappedAsyncObjects->Add(wrapperObject);
+            for each (JavascriptObject^ obj in Enumerable::OfType<JavascriptObject^>(objects))
+            {
+                if (obj->IsAsync)
+                {
+                    auto wrapperObject = gcnew JavascriptAsyncObjectWrapper(_callbackRegistry, saveMethod);
+                    wrapperObject->Bind(obj, v8Value);
+
+                    _wrappedAsyncObjects->Add(wrapperObject);
+                }
+                else
+                {
+                    if (_browserProcess == nullptr)
+                    {
+                        LOG(ERROR) << StringUtils::ToNative("IBrowserProcess is null, unable to bind object " + obj->JavascriptName).ToString();
+
+                        continue;
+                    }
+
+                    auto wrapperObject = gcnew JavascriptObjectWrapper(_browserProcess);
+                    wrapperObject->Bind(obj, v8Value, _callbackRegistry);
+
+                    _wrappedObjects->Add(wrapperObject);
+                }
             }
         }
     }
@@ -52,12 +49,6 @@ namespace CefSharp
     {
         return _callbackRegistry;
     }
-
-    bool JavascriptRootObjectWrapper::IsBound::get()
-    {
-        return _isBound;
-    }
-
 
     int64 JavascriptRootObjectWrapper::SaveMethodCallback(JavascriptAsyncMethodCallback^ callback)
     {

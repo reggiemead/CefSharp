@@ -1,9 +1,9 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CefSharp.Internals
 {
@@ -17,18 +17,15 @@ namespace CefSharp.Internals
             return args.Any(a => a.StartsWith(arg));
         }
 
-        public static int? LocateParentProcessId(this IEnumerable<string> args)
+        public static string GetArgumentValue(this IEnumerable<string> args, string argumentName)
         {
-            var hostProcessId = args.SingleOrDefault(arg => arg.StartsWith(CefSharpArguments.WcfHostProcessIdArgument));
-            if (hostProcessId == null)
+            var arg = args.FirstOrDefault(a => a.StartsWith(argumentName));
+            if (arg == null)
             {
                 return null;
             }
 
-            var parentProcessId = hostProcessId
-                .Split('=')
-                .Last();
-            return int.Parse(parentProcessId);
+            return arg.Split('=').Last();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -20,7 +20,7 @@ namespace CefSharp
         /// en-US Locales pak file location
         /// </summary>
         public const string LocalesPackFile = @"locales\en-US.pak";
-        
+
         /// <summary>
         /// List of Cef Dependencies
         /// </summary>
@@ -34,7 +34,8 @@ namespace CefSharp
             // https://groups.google.com/a/chromium.org/forum/#!topic/chromium-packagers/75J9Y1vIc_E
             // http://www.magpcss.org/ceforum/viewtopic.php?f=6&t=12580
             "natives_blob.bin",
-            "snapshot_blob.bin"
+            "snapshot_blob.bin",
+            "v8_context_snapshot.bin"
         };
 
         /// <summary>
@@ -177,7 +178,7 @@ namespace CefSharp
 
             var path = Path.GetDirectoryName(executingAssembly.Location);
 
-            if(string.IsNullOrEmpty(locale))
+            if (string.IsNullOrEmpty(locale))
             {
                 locale = "en-US";
             }

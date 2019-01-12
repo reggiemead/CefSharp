@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -119,7 +119,9 @@ namespace CefSharp.Example
             // Scripts should be minified for production builds. The script
             // could also be read from a file...
             var script =
-                @"(function () {
+                @"(async function ()
+                {
+                    await CefSharp.BindObjectAsync('boundEvent');
                     var counter = 0;
                     var elem = document.getElementById('##ID##');
                     elem.removeAttribute('disabled');

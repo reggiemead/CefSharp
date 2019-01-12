@@ -1,12 +1,13 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2013 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
-using CefSharp.Example;
 using System;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using CefSharp.Example;
 using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.Command;
 
@@ -97,6 +98,7 @@ namespace CefSharp.Wpf.Example.ViewModels
         public ICommand EvaluateJavaScriptCommand { get; private set; }
         public ICommand ShowDevToolsCommand { get; private set; }
         public ICommand CloseDevToolsCommand { get; private set; }
+        public ICommand JavascriptBindingStressTest { get; private set; }
 
         public BrowserTabViewModel(string address)
         {
@@ -109,6 +111,20 @@ namespace CefSharp.Wpf.Example.ViewModels
             EvaluateJavaScriptCommand = new RelayCommand<string>(EvaluateJavaScript, s => !String.IsNullOrWhiteSpace(s));
             ShowDevToolsCommand = new RelayCommand(() => webBrowser.ShowDevTools());
             CloseDevToolsCommand = new RelayCommand(() => webBrowser.CloseDevTools());
+            JavascriptBindingStressTest = new RelayCommand(() =>
+            {
+                WebBrowser.Load(CefExample.BindingTestUrl);
+                WebBrowser.LoadingStateChanged += (e, args) =>
+                {
+                    if (args.IsLoading == false)
+                    {
+                        Task.Delay(10000).ContinueWith(t =>
+                        {
+                            WebBrowser.Reload();
+                        });
+                    }
+                };
+            });
 
             PropertyChanged += OnPropertyChanged;
 
@@ -193,7 +209,9 @@ namespace CefSharp.Wpf.Example.ViewModels
         {
             // Don't display an error for downloaded files where the user aborted the download.
             if (args.ErrorCode == CefErrorCode.Aborted)
+            {
                 return;
+            }
 
             var errorMessage = "<html><body><h2>Failed to load URL " + args.FailedUrl +
                   " with error " + args.ErrorText + " (" + args.ErrorCode +

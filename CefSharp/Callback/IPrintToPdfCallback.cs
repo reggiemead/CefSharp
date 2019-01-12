@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -19,5 +19,10 @@ namespace CefSharp
         /// <param name="ok">Will be true if the printing completed
         /// successfully or false otherwise.</param>
         void OnPdfPrintFinished(string path, bool ok);
+
+        /// <summary>
+        /// Gets a value indicating whether the callback has been disposed of.
+        /// </summary>
+        bool IsDisposed { get; }
     }
 }

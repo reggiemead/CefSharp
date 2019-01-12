@@ -1,4 +1,4 @@
-// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright Â© 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -9,6 +9,8 @@
 #include "CefWrapper.h"
 
 using namespace System::Threading::Tasks;
+using namespace CefSharp::Structs;
+using namespace CefSharp::Enums;
 
 namespace CefSharp
 {
@@ -18,14 +20,14 @@ namespace CefSharp
         {
         private:
             MCefRefPtr<CefBrowserHost> _browserHost;
-            
+
             double GetZoomLevelOnUI();
 
         internal:
             CefBrowserHostWrapper(CefRefPtr<CefBrowserHost> &browserHost) : _browserHost(browserHost)
             {
             }
-            
+
             !CefBrowserHostWrapper()
             {
                 _browserHost = NULL;
@@ -53,7 +55,7 @@ namespace CefSharp
             virtual void DragSourceEndedAt(int x, int y, DragOperationsMask op);
             virtual void DragTargetDragLeave();
             virtual void DragSourceSystemDragEnded();
-        
+
             virtual void ShowDevTools(IWindowInfo^ windowInfo, int inspectElementAtX, int inspectElementAtY);
             virtual void CloseDevTools();
             ///
@@ -89,6 +91,10 @@ namespace CefSharp
             virtual void SendMouseClickEvent(MouseEvent mouseEvent, MouseButtonType mouseButtonType, bool mouseUp, int clickCount);
 
             virtual void SendMouseMoveEvent(MouseEvent mouseEvent, bool mouseLeave);
+
+            virtual void SetAccessibilityState(CefState accessibilityState);
+
+            virtual void SetAutoResizeEnabled(bool enabled, Size minSize, Size maxSize);
 
             virtual void NotifyMoveOrResizeStarted();
 

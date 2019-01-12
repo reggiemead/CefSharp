@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2014 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -7,19 +7,21 @@ using System.Collections.Specialized;
 
 namespace CefSharp
 {
+    /// <summary>
+    /// Class used to represent a web request. The methods of this class may be called on any thread. 
+    /// </summary>
     public interface IRequest : IDisposable
     {
+        ///// <summary>
+        ///// Get/Set the Url to the first party for cookies used in combination with CefURLRequest.
+        ///// </summary>
+        ///// Note: If we every implment CefURLRequest then this will need to be added
+        ////string FirstPartyForCookies { get; set; }
+
         /// <summary>
-        /// Get/Set the Url to the first party for cookies used in combination with CefURLRequest.
+        /// Get/Set request flags, can be used to control caching policy
         /// </summary>
-        /// Note: If we every implment CefURLRequest then this will need to be added
-        //string FirstPartyForCookies { get; set; }
-        
-        /// <summary>
-        /// Get the flags used in combination with CefURLRequest. See cef_urlrequest_flags_t for supported values. 
-        /// </summary>
-        /// Note: If we every implment CefURLRequest then this will need to be added
-        //int Flags { get; set; }
+        UrlRequestFlags Flags { get; set; }
 
         /// <summary>
         /// Request Url
@@ -56,7 +58,7 @@ namespace CefSharp
         /// Get the resource type for this request.
         /// </summary>
         ResourceType ResourceType { get; }
-  
+
         /// <summary>
         /// Get the referrer policy.
         /// </summary>
@@ -73,7 +75,7 @@ namespace CefSharp
         /// Post data
         /// </summary>
         IPostData PostData { get; }
-        
+
         /// <summary>
         /// Get the transition type for this request.
         /// Applies to requests that represent a main frame or sub-frame navigation.

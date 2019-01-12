@@ -1,18 +1,16 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using System.Threading;
 
 namespace CefSharp.Example
 {
-    public struct JsObject 
-    {
-        public string Value;
-    }
-
     public class AsyncBoundObject
     {
         //We expect an exception here, so tell VS to ignore
@@ -34,25 +32,119 @@ namespace CefSharp.Example
             return "Hello " + name;
         }
 
-        public void DoSomething()
+        public string DoSomething()
         {
             Thread.Sleep(1000);
+
+            return "Waited for 1000ms before returning";
         }
 
-        public JsObject ReturnObject(string name)
+        public JsSerializableStruct ReturnObject(string name)
         {
-            return new JsObject
+            return new JsSerializableStruct
             {
                 Value = name
             };
         }
 
-        public JsObject[] ObjectArray(string name)
+        public JsSerializableClass ReturnClass(string name)
         {
-            return new[] 
+            return new JsSerializableClass
             {
-                new JsObject() { Value = "Item1" },
-                new JsObject() { Value = "Item2" }
+                Value = name
+            };
+        }
+
+        public JsSerializableStruct[] ReturnStructArray(string name)
+        {
+            return new[]
+            {
+                new JsSerializableStruct { Value = name + "Item1" },
+                new JsSerializableStruct { Value = name + "Item2" }
+            };
+        }
+
+        public JsSerializableClass[] ReturnClassesArray(string name)
+        {
+            return new[]
+            {
+                new JsSerializableClass { Value = name + "Item1" },
+                new JsSerializableClass { Value = name + "Item2" }
+            };
+        }
+
+        public string[] EchoArray(string[] arg)
+        {
+            return arg;
+        }
+
+        public int[] EchoValueTypeArray(int[] arg)
+        {
+            return arg;
+        }
+
+        public int[][] EchoMultidimensionalArray(int[][] arg)
+        {
+            return arg;
+        }
+
+        public string DynamiObjectList(IList<dynamic> objects)
+        {
+            var builder = new StringBuilder();
+
+            foreach (var browser in objects)
+            {
+                builder.Append("Browser(Name:" + browser.Name + ";Engine:" + browser.Engine.Name + ");");
+            }
+
+            return builder.ToString();
+        }
+
+        public List<string> MethodReturnsList()
+        {
+            return new List<string>()
+            {
+                "Element 0 - First",
+                "Element 1",
+                "Element 2 - Last",
+            };
+        }
+
+        public List<List<string>> MethodReturnsListOfLists()
+        {
+            return new List<List<string>>()
+            {
+                new List<string>() {"Element 0, 0", "Element 0, 1" },
+                new List<string>() {"Element 1, 0", "Element 1, 1" },
+                new List<string>() {"Element 2, 0", "Element 2, 1" },
+            };
+        }
+
+        public Dictionary<string, int> MethodReturnsDictionary1()
+        {
+            return new Dictionary<string, int>()
+            {
+                {"five", 5},
+                {"ten", 10}
+            };
+        }
+
+        public Dictionary<string, object> MethodReturnsDictionary2()
+        {
+            return new Dictionary<string, object>()
+            {
+                {"onepointfive", 1.5},
+                {"five", 5},
+                {"ten", "ten"},
+                {"twotwo", new Int32[]{2, 2} }
+            };
+        }
+
+        public Dictionary<string, IDictionary> MethodReturnsDictionary3()
+        {
+            return new Dictionary<string, IDictionary>()
+            {
+                {"data", MethodReturnsDictionary2()}
             };
         }
     }

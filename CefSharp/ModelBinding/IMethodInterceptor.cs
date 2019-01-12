@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -9,6 +9,7 @@ namespace CefSharp.ModelBinding
     /// <summary>
     /// Provides the capability intercept Net method calls made from javascript as part of the
     /// JavascriptBinding (JSB) implementation. One example use case is logging method calls.
+    /// </summary>
     public interface IMethodInterceptor
     {
         /// <summary>
@@ -19,7 +20,7 @@ namespace CefSharp.ModelBinding
         /// <param name="methodName">Name of the method to be called</param>
         /// <returns>The method result</returns>
         /// <example>
-        /// object IMethodInterceptor.Intercept(Func<object> method, string methodName)
+        /// object IMethodInterceptor.Intercept(Func&lt;object&gt; method, string methodName)
         /// {
         ///   object result = method();
         ///   Debug.WriteLine("Called " + methodName);

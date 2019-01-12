@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2014 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include "include/cef_base.h"
 
 #include "CefBrowserWrapper.h"
+#include "RegisterBoundObjectRegistry.h"
 
 using namespace System::Collections::Generic;
 
@@ -18,23 +19,21 @@ namespace CefSharp
     private class CefAppUnmanagedWrapper : CefApp, CefRenderProcessHandler
     {
     private:
-        static const CefString kPromiseCreatorScript;
-
         gcroot<Action<CefBrowserWrapper^>^> _onBrowserCreated;
         gcroot<Action<CefBrowserWrapper^>^> _onBrowserDestroyed;
         gcroot<ConcurrentDictionary<int, CefBrowserWrapper^>^> _browserWrappers;
         gcroot<List<CefExtension^>^> _extensions;
         gcroot<List<CefCustomScheme^>^> _schemes;
         bool _focusedNodeChangedEnabled;
-
-        // The serialized registered object data waiting to be used (only contains methods and bound async).
-        gcroot<JavascriptRootObject^> _javascriptAsyncRootObject;
+        bool _legacyBindingEnabled;
 
         // The serialized registered object data waiting to be used.
-        gcroot<JavascriptRootObject^> _javascriptRootObject;
+        gcroot<Dictionary<String^, JavascriptObject^>^> _javascriptObjects;
+
+        gcroot<RegisterBoundObjectRegistry^> _registerBoundObjectRegistry;
 
     public:
-        static const CefString kPromiseCreatorFunction;
+        static const CefString kPromiseCreatorScript;
 
         CefAppUnmanagedWrapper(List<CefCustomScheme^>^ schemes, bool enableFocusedNodeChanged, Action<CefBrowserWrapper^>^ onBrowserCreated, Action<CefBrowserWrapper^>^ onBrowserDestoryed)
         {
@@ -44,6 +43,9 @@ namespace CefSharp
             _extensions = gcnew List<CefExtension^>();
             _schemes = schemes;
             _focusedNodeChangedEnabled = enableFocusedNodeChanged;
+            _javascriptObjects = gcnew Dictionary<String^, JavascriptObject^>();
+            _registerBoundObjectRegistry = gcnew RegisterBoundObjectRegistry();
+            _legacyBindingEnabled = false;
         }
 
         ~CefAppUnmanagedWrapper()
@@ -63,7 +65,8 @@ namespace CefSharp
             delete _schemes;
         }
 
-        CefBrowserWrapper^ FindBrowserWrapper(int browserId, bool mustExist);
+        CefBrowserWrapper^ FindBrowserWrapper(int browserId);
+        JavascriptRootObjectWrapper^ GetJsRootObjectWrapper(int browserId, int64 frameId);
 
         virtual DECL CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() OVERRIDE;
         virtual DECL void OnBrowserCreated(CefRefPtr<CefBrowser> browser) OVERRIDE;
@@ -75,6 +78,7 @@ namespace CefSharp
         virtual DECL void OnWebKitInitialized() OVERRIDE;
         virtual DECL void OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar) OVERRIDE;
         virtual DECL void OnFocusedNodeChanged(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefDOMNode> node) OVERRIDE;
+        virtual DECL void OnUncaughtException(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context, CefRefPtr<CefV8Exception> exception, CefRefPtr<CefV8StackTrace> stackTrace) OVERRIDE;
 
         IMPLEMENT_REFCOUNTING(CefAppUnmanagedWrapper);
     };

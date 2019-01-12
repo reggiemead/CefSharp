@@ -1,4 +1,4 @@
-// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2014 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -74,11 +74,13 @@ namespace CefSharp
         /// <summary>
         /// Initializes a new instance of the <see cref="ResourceHandler"/> class.
         /// </summary>
-        /// <param name="mimeType">Optional mimeType defaults to <see cref="ResourceHandler.DefaultMimeType"/></param>
+        /// <param name="mimeType">Optional mimeType defaults to <see cref="DefaultMimeType"/></param>
         /// <param name="stream">Optional Stream - must be set at some point to provide a valid response</param>
-        public ResourceHandler(string mimeType = DefaultMimeType, Stream stream = null)
+        /// <param name="autoDisposeStream">When true the Stream will be disposed when this instance is Diposed, you will
+        /// be unable to use this ResourceHandler after the Stream has been disposed</param>
+        public ResourceHandler(string mimeType = DefaultMimeType, Stream stream = null, bool autoDisposeStream = false)
         {
-            if(string.IsNullOrEmpty(mimeType))
+            if (string.IsNullOrEmpty(mimeType))
             {
                 throw new ArgumentNullException("mimeType", "Please provide a valid mimeType");
             }
@@ -88,6 +90,7 @@ namespace CefSharp
             MimeType = mimeType;
             Headers = new NameValueCollection();
             Stream = stream;
+            AutoDisposeStream = autoDisposeStream;
         }
 
         /// <summary>
@@ -129,14 +132,14 @@ namespace CefSharp
             response.MimeType = MimeType;
             response.StatusCode = StatusCode;
             response.StatusText = StatusText;
-            response.ResponseHeaders = Headers;
+            response.Headers = Headers;
 
-            if(ResponseLength.HasValue)
+            if (ResponseLength.HasValue)
             {
                 responseLength = ResponseLength.Value;
             }
             else
-            { 
+            {
                 //If no ResponseLength provided then attempt to infer the length
                 if (Stream != null && Stream.CanSeek)
                 {
@@ -169,10 +172,10 @@ namespace CefSharp
                 response.ErrorCode = ErrorCode.Value;
             }
             else
-            { 
+            {
                 Stream = GetResponse(response, out responseLength, out redirectUrl);
-            
-                if(Stream != null && Stream.CanSeek)
+
+                if (Stream != null && Stream.CanSeek)
                 {
                     //Reset the stream position to 0
                     Stream.Position = 0;
@@ -197,7 +200,7 @@ namespace CefSharp
             bytesRead = Stream.Read(buffer, 0, buffer.Length);
 
             //If bytesRead is 0 then no point attempting a write to dataOut
-            if(bytesRead == 0)
+            if (bytesRead == 0)
             {
                 return false;
             }
@@ -225,15 +228,19 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Gets the resource from the file path specified. Use the <see cref="ResourceHandler.GetMimeType"/>
+        /// Gets the resource from the file path specified. Use the <see cref="GetMimeType"/>
         /// helper method to lookup the mimeType if required. Uses CefStreamResourceHandler for reading the data
         /// </summary>
         /// <param name="filePath">Location of the file.</param>
         /// <param name="mimeType">The mimeType if null then text/html is used.</param>
+        /// <param name="autoDisposeStream">Dispose of the stream when finished with (you will only be able to serve one
+        /// request).</param>
         /// <returns>IResourceHandler.</returns>
-        public static IResourceHandler FromFilePath(string filePath, string mimeType = null)
+        public static IResourceHandler FromFilePath(string filePath, string mimeType = null, bool autoDisposeStream = false)
         {
-            return new FileResourceHandler(mimeType ?? DefaultMimeType, filePath);
+            var stream = File.OpenRead(filePath);
+
+            return FromStream(stream, mimeType ?? DefaultMimeType, autoDisposeStream);
         }
 
         /// <summary>
@@ -270,7 +277,7 @@ namespace CefSharp
         /// <returns>ResourceHandler</returns>
         public static IResourceHandler FromString(string text, Encoding encoding = null, bool includePreamble = true, string mimeType = DefaultMimeType)
         {
-            if(encoding == null)
+            if (encoding == null)
             {
                 encoding = Encoding.UTF8;
             }
@@ -298,10 +305,12 @@ namespace CefSharp
         /// </summary>
         /// <param name="stream">A stream of the resource.</param>
         /// <param name="mimeType">Type of MIME.</param>
+        /// <param name="autoDisposeStream">Dispose of the stream when finished with (you will only be able to serve one
+        /// request).</param>
         /// <returns>ResourceHandler.</returns>
-        public static ResourceHandler FromStream(Stream stream, string mimeType = DefaultMimeType)
+        public static ResourceHandler FromStream(Stream stream, string mimeType = DefaultMimeType, bool autoDisposeStream = false)
         {
-            return new ResourceHandler(mimeType, stream);
+            return new ResourceHandler(mimeType, stream, autoDisposeStream);
         }
 
         /// <summary>
@@ -359,7 +368,7 @@ namespace CefSharp
         }
 
         //TODO: Replace with call to CefGetMimeType (little difficult at the moment with no access to the CefSharp.Core class from here)
-        private static readonly IDictionary<string, string> Mappings = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase) 
+        private static readonly IDictionary<string, string> Mappings = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase)
         {
             // Combination of values from Windows 7 Registry and  C:\Windows\System32\inetsrv\config\applicationHost.config
             {".323", "text/h323"},
@@ -950,7 +959,7 @@ namespace CefSharp
         /// </summary>
         public virtual void Dispose()
         {
-            if(AutoDisposeStream && Stream != null)
+            if (AutoDisposeStream && Stream != null)
             {
                 Stream.Dispose();
                 Stream = null;

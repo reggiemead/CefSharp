@@ -1,22 +1,23 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 using System;
-using System.Text;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Globalization;
-using CefSharp.Internals;
-using System.IO;
 using System.Collections.Specialized;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+using CefSharp.Internals;
 
 namespace CefSharp
 {
+    /// <summary>
+    /// WebBrowser extensions - These methods make performing common tasks
+    /// easier.
+    /// </summary>
     public static class WebBrowserExtensions
     {
-        private static Type[] numberTypes = new Type[] { typeof(int), typeof(uint), typeof(double), typeof(decimal), typeof(float), typeof(Int64), typeof(Int16) };
-
         /// <summary>
         /// Returns the main (top-level) frame for the browser window.
         /// </summary>
@@ -50,7 +51,7 @@ namespace CefSharp
         public static void Undo(this IWebBrowser browser)
         {
             using (var frame = browser.GetFocusedFrame())
-            { 
+            {
                 ThrowExceptionIfFrameNull(frame);
 
                 frame.Undo();
@@ -193,10 +194,12 @@ namespace CefSharp
         /// </summary>
         /// <param name="browser">The ChromiumWebBrowser instance this method extends</param>
         /// <param name="methodName">The javascript method name to execute</param>
-        /// <param name="args">the arguments to be passed as params to the method</param>
+        /// <param name="args">the arguments to be passed as params to the method. Args are encoded using <see cref="EncodeScriptParam"/>,
+        /// you can provide a custom implementation if you require a custom implementation</param>
         public static void ExecuteScriptAsync(this IWebBrowser browser, string methodName, params object[] args)
         {
             var script = GetScript(methodName, args);
+
             browser.ExecuteScriptAsync(script);
         }
 
@@ -208,10 +211,11 @@ namespace CefSharp
         /// <param name="script">The Javascript code that should be executed.</param>
         public static void ExecuteScriptAsync(this IWebBrowser browser, string script)
         {
-            if (browser.CanExecuteJavascriptInMainFrame == false)
-            {
-                ThrowExceptionIfCanExecuteJavascriptInMainFrameFalse();
-            }
+            //TODO: Re-enable when Native IPC issue resolved.
+            //if (browser.CanExecuteJavascriptInMainFrame == false)
+            //{
+            //	ThrowExceptionIfCanExecuteJavascriptInMainFrameFalse();
+            //}
 
             using (var frame = browser.GetMainFrame())
             {
@@ -222,8 +226,66 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Loads 
+        /// Execute Javascript code in the context of this WebBrowser. This extension method uses the LoadingStateChanged event.
+        /// As the method name implies, the script will be executed asynchronously, and the method therefore returns before the
+        /// script has actually been executed.
+        /// </summary>
+        /// <param name="webBrowser">The ChromiumWebBrowser instance this method extends</param>
+        /// <param name="script">The Javascript code that should be executed.</param>
+        /// <param name="oneTime">The script will only be executed on first page load, subsiquent page loads will be ignored</param>
+        /// <remarks>Best effort is made to make sure the script is executed, there are likely a few edge cases where the script
+        /// won't be executed, if you suspect your script isn't being executed, then try executing in the LoadingStateChanged
+        /// event handler to confirm that it does indeed get executed.</remarks>
+        public static void ExecuteScriptAsyncWhenPageLoaded(this IWebBrowser webBrowser, string script, bool oneTime = true)
+        {
+            var useLoadingStateChangedEventHandler = webBrowser.IsBrowserInitialized == false || oneTime == false;
+
+            //Browser has been initialized, we check if there is a valid document and we're not loading
+            if (webBrowser.IsBrowserInitialized)
+            {
+                //CefBrowser wrapper
+                var browser = webBrowser.GetBrowser();
+                if (browser.HasDocument && browser.IsLoading == false)
+                {
+                    webBrowser.ExecuteScriptAsync(script);
+                }
+                else
+                {
+                    useLoadingStateChangedEventHandler = true;
+                }
+            }
+
+            //If the browser hasn't been initialized we can just wire up the LoadingStateChanged event
+            //If the script has already been executed and oneTime is false will be hooked up next page load.
+            if (useLoadingStateChangedEventHandler)
+            {
+                EventHandler<LoadingStateChangedEventArgs> handler = null;
+
+                handler = (sender, args) =>
+                {
+                    //Wait for while page to finish loading not just the first frame
+                    if (!args.IsLoading)
+                    {
+                        if (oneTime)
+                        {
+                            webBrowser.LoadingStateChanged -= handler;
+                        }
+
+                        webBrowser.ExecuteScriptAsync(script);
+                    }
+                };
+
+                webBrowser.LoadingStateChanged += handler;
+            }
+        }
+
+        /// <summary>
         /// Creates a new instance of IRequest with the specified Url and Method = POST
+        /// and then calls <see cref="IFrame.LoadRequest(IRequest)"/>.
+        /// <see cref="IFrame.LoadRequest(IRequest)"/> can only be used if a renderer process already exists.
+        /// In newer versions initially loading about:blank no longer creates a renderer process. You
+        /// can load a Data Uri initially then call this method.
+        /// https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs
         /// </summary>
         /// <param name="browser"></param>
         /// <param name="url"></param>
@@ -237,15 +299,15 @@ namespace CefSharp
                 ThrowExceptionIfFrameNull(frame);
 
                 //Initialize Request with PostData
-                var request = frame.CreateRequest(initializePostData:true);
+                var request = frame.CreateRequest(initializePostData: true);
 
                 request.Url = url;
                 request.Method = "POST";
 
                 request.PostData.AddData(postDataBytes);
 
-                if(!string.IsNullOrEmpty(contentType))
-                { 
+                if (!string.IsNullOrEmpty(contentType))
+                {
                     var headers = new NameValueCollection();
                     headers.Add("Content-Type", contentType);
                     request.Headers = headers;
@@ -301,13 +363,13 @@ namespace CefSharp
         /// <param name="base64Encode">if true the html string will be base64 encoded using UTF8 encoding.</param>
         public static void LoadHtml(this IWebBrowser browser, string html, bool base64Encode = false)
         {
-            if(base64Encode)
-            { 
+            if (base64Encode)
+            {
                 var base64EncodedHtml = Convert.ToBase64String(Encoding.UTF8.GetBytes(html));
                 browser.Load("data:text/html;base64," + base64EncodedHtml);
             }
             else
-            { 
+            {
                 var uriEncodedHtml = Uri.EscapeDataString(html);
                 browser.Load("data:text/html," + uriEncodedHtml);
             }
@@ -337,12 +399,12 @@ namespace CefSharp
 
             var resourceHandler = handler as DefaultResourceHandlerFactory;
 
-            if(resourceHandler == null)
+            if (resourceHandler == null)
             {
                 throw new Exception("LoadHtml can only be used with the default IResourceHandlerFactory(DefaultResourceHandlerFactory) implementation");
             }
 
-            if (resourceHandler.RegisterHandler(url, ResourceHandler.FromString(html, encoding, true), oneTimeUse))
+            if (resourceHandler.RegisterHandler(url, ResourceHandler.GetByteArray(html, encoding, true), ResourceHandler.DefaultMimeType, oneTimeUse))
             {
                 browser.Load(url);
                 return true;
@@ -357,7 +419,10 @@ namespace CefSharp
         /// <param name="url">the url of the resource to unregister</param>
         /// <param name="stream">Stream to be registered, the stream should not be shared with any other instances of DefaultResourceHandlerFactory</param>
         /// <param name="mimeType">the mimeType</param>
-        public static void RegisterResourceHandler(this IWebBrowser browser, string url, Stream stream, string mimeType = ResourceHandler.DefaultMimeType)
+        /// <param name="oneTimeUse">Whether or not the handler should be used once (true) or until manually unregistered (false). If true the Stream
+        /// will be Diposed of when finished.</param>
+        public static void RegisterResourceHandler(this IWebBrowser browser, string url, Stream stream, string mimeType = ResourceHandler.DefaultMimeType,
+            bool oneTimeUse = false)
         {
             var handler = browser.ResourceHandlerFactory as DefaultResourceHandlerFactory;
             if (handler == null)
@@ -365,7 +430,12 @@ namespace CefSharp
                 throw new Exception("RegisterResourceHandler can only be used with the default IResourceHandlerFactory(DefaultResourceHandlerFactory) implementation");
             }
 
-            handler.RegisterHandler(url, ResourceHandler.FromStream(stream, mimeType));
+            using (var ms = new MemoryStream())
+            {
+                stream.CopyTo(ms);
+
+                handler.RegisterHandler(url, ms.ToArray(), mimeType, oneTimeUse);
+            }
         }
 
         /// <summary>
@@ -442,6 +512,29 @@ namespace CefSharp
             ThrowExceptionIfBrowserNull(cefBrowser);
 
             cefBrowser.Reload(ignoreCache);
+        }
+
+        /// <summary>
+        /// Gets the default cookie manager associated with the IWebBrowser
+        /// </summary>
+        /// <param name="browser">The ChromiumWebBrowser instance this method extends</param>
+        /// <param name="callback">If not null it will be executed asnychronously on the
+        /// CEF IO thread after the manager's storage has been initialized.</param>
+        /// <returns>Cookie Manager</returns>
+        public static ICookieManager GetCookieManager(this IWebBrowser browser, ICompletionCallback callback = null)
+        {
+            var host = browser.GetBrowserHost();
+
+            ThrowExceptionIfBrowserHostNull(host);
+
+            var requestContext = host.RequestContext;
+
+            if (requestContext == null)
+            {
+                throw new Exception("RequestContext is null, unable to obtain cookie manager");
+            }
+
+            return requestContext.GetDefaultCookieManager(callback);
         }
 
         /// <summary>
@@ -715,7 +808,7 @@ namespace CefSharp
         /// </summary>
         /// <param name="browser">The ChromiumWebBrowser instance this method extends</param>
         /// <returns>browserHost or null</returns>
-        public static IBrowserHost GetHost(IWebBrowser browser)
+        public static IBrowserHost GetBrowserHost(this IWebBrowser browser)
         {
             var cefBrowser = browser.GetBrowser();
 
@@ -771,7 +864,7 @@ namespace CefSharp
 
             host.SendMouseMoveEvent(new MouseEvent(x, y, modifiers), mouseLeave);
         }
-        
+
         public static Task<JavascriptResponse> EvaluateScriptAsync(this IWebBrowser browser, string script, TimeSpan? timeout = null)
         {
             if (timeout.HasValue && timeout.Value.TotalMilliseconds > UInt32.MaxValue)
@@ -779,10 +872,11 @@ namespace CefSharp
                 throw new ArgumentOutOfRangeException("timeout", "Timeout greater than Maximum allowable value of " + UInt32.MaxValue);
             }
 
-            if(browser.CanExecuteJavascriptInMainFrame == false)
-            {
-                ThrowExceptionIfCanExecuteJavascriptInMainFrameFalse();
-            }
+            //TODO: Re-enable when Native IPC issue resolved.
+            //if(browser.CanExecuteJavascriptInMainFrame == false)
+            //{
+            //	ThrowExceptionIfCanExecuteJavascriptInMainFrameFalse();
+            //}
 
             using (var frame = browser.GetMainFrame())
             {
@@ -809,12 +903,13 @@ namespace CefSharp
         /// <summary>
         /// Evaluate some Javascript code in the context of this WebBrowser using the specified timeout. The script will be executed asynchronously and the
         /// method returns a Task encapsulating the response from the Javascript 
-        /// This simple helper extension will encapsulate params in single quotes (unless int, uint, etc)
+        /// This simple helper extension will encapsulate params in single quotes (unless int, uint, etc).
         /// </summary>
         /// <param name="browser">The ChromiumWebBrowser instance this method extends</param>
         /// <param name="timeout">The timeout after which the Javascript code execution should be aborted.</param>
         /// <param name="methodName">The javascript method name to execute</param>
-        /// <param name="args">the arguments to be passed as params to the method</param>
+        /// <param name="args">the arguments to be passed as params to the method. Args are encoded using <see cref="EncodeScriptParam"/>,
+        /// you can provide a custom implementation if you require a custom implementation</param>
         /// <returns><see cref="Task{JavascriptResponse}"/> that can be awaited to perform the script execution</returns>
         public static Task<JavascriptResponse> EvaluateScriptAsync(this IWebBrowser browser, TimeSpan? timeout, string methodName, params object[] args)
         {
@@ -840,6 +935,41 @@ namespace CefSharp
         }
 
         /// <summary>
+        /// Function used to encode the params passed to <see cref="ExecuteScriptAsync(IWebBrowser, string, object[])"/>,
+        /// <see cref="EvaluateScriptAsync(IWebBrowser, string, object[])"/> and <see cref="EvaluateScriptAsync(IWebBrowser, TimeSpan?, string, object[])"/>
+        /// Provide your own custom function to perform custom encoding. You can use your choice
+        /// of JSON encoder here if you should so choose.
+        /// </summary>
+        public static Func<string, string> EncodeScriptParam { get; set; } = (str) =>
+        {
+            return str.Replace("\\", "\\\\")
+                .Replace("'", "\\'")
+                .Replace("\t", "\\t")
+                .Replace("\r", "\\r")
+                .Replace("\n", "\\n");
+        };
+
+        /// <summary>
+        /// Checks if the given object is a numerical object
+        /// </summary>
+        /// <param name="value">The object to check</param>
+        /// <returns>True if numeric, otherwise false</returns>
+        private static bool IsNumeric(this object value)
+        {
+            return value is sbyte
+                    || value is byte
+                    || value is short
+                    || value is ushort
+                    || value is int
+                    || value is uint
+                    || value is long
+                    || value is ulong
+                    || value is float
+                    || value is double
+                    || value is decimal;
+        }
+
+        /// <summary>
         /// Transforms the methodName and arguments into valid Javascript code. Will encapsulate params in single quotes (unless int, uint, etc)
         /// </summary>
         /// <param name="methodName">The javascript method name to execute</param>
@@ -860,7 +990,7 @@ namespace CefSharp
                     {
                         stringBuilder.Append("null");
                     }
-                    else if (numberTypes.Contains(obj.GetType()))
+                    else if (obj.IsNumeric())
                     {
                         stringBuilder.Append(Convert.ToString(args[i], CultureInfo.InvariantCulture));
                     }
@@ -871,7 +1001,7 @@ namespace CefSharp
                     else
                     {
                         stringBuilder.Append("'");
-                        stringBuilder.Append(args[i].ToString().Replace("'", "\\'"));
+                        stringBuilder.Append(EncodeScriptParam(obj.ToString()));
                         stringBuilder.Append("'");
                     }
 

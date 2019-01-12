@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2015 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -187,7 +187,7 @@ namespace CefSharp
         /// Attempts to resolve origin to a list of associated IP addresses.
         /// </summary>
         /// <param name="origin">host name to resolve</param>
-        /// <return>A task that represents the Resoolve Host operation. The value of the TResult parameter contains ResolveCallbackResult.</return>
+        /// <returns>A task that represents the Resoolve Host operation. The value of the TResult parameter contains ResolveCallbackResult.</returns>
         Task<ResolveCallbackResult> ResolveHostAsync(Uri origin);
 
         /// <summary>

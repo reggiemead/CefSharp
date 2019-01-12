@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2019
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CefSharp.Example", "CefSharp.Example\CefSharp.Example.csproj", "{A4394E7B-1155-43A6-989E-8AB72DDDC9E4}"
 EndProject
@@ -13,10 +15,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CefSharp.Wpf.Example", "Cef
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{47D0DC8C-D707-4D8A-A578-7737AA9CE79B}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		appveyor.yml = appveyor.yml
 		CefSharp.Native.props = CefSharp.Native.props
 		CefSharp.props = CefSharp.props
 		CONTRIBUTING.md = CONTRIBUTING.md
+		ISSUE_TEMPLATE.md = ISSUE_TEMPLATE.md
 		LICENSE = LICENSE
 		README.md = README.md
 	EndProjectSection
@@ -45,13 +49,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{A23AA466
 		NuGet\CefSharp.Common.targets = NuGet\CefSharp.Common.targets
 		NuGet\CefSharp.OffScreen.nuspec = NuGet\CefSharp.OffScreen.nuspec
 		NuGet\CefSharp.OffScreen.props = NuGet\CefSharp.OffScreen.props
-		NuGet\CefSharp.OffScreen.targets = NuGet\CefSharp.OffScreen.targets
 		NuGet\CefSharp.WinForms.nuspec = NuGet\CefSharp.WinForms.nuspec
 		NuGet\CefSharp.WinForms.props = NuGet\CefSharp.WinForms.props
-		NuGet\CefSharp.WinForms.targets = NuGet\CefSharp.WinForms.targets
 		NuGet\CefSharp.Wpf.nuspec = NuGet\CefSharp.Wpf.nuspec
 		NuGet\CefSharp.Wpf.props = NuGet\CefSharp.Wpf.props
-		NuGet\CefSharp.Wpf.targets = NuGet\CefSharp.Wpf.targets
 		NuGet\Readme.txt = NuGet\Readme.txt
 	EndProjectSection
 EndProject
@@ -81,11 +82,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CefSharp.OffScreen.Example"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CefSharp.Prebuild", "CefSharp.Prebuild\CefSharp.Prebuild.csproj", "{B582D33A-AC8B-4983-9243-764804A4B26D}"
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CefSharp.Test", "CefSharp.Test\CefSharp.Test.csproj", "{7A4D5447-183B-4A11-8E63-9848991B46FF}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{2435E0E8-FE4C-4C12-A171-8145ACF0B19C}"
-	ProjectSection(SolutionItems) = preProject
-		.nuget\packages.config = .nuget\packages.config
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -206,5 +202,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{A23AA466-1903-44F2-946D-25AD0500D56B} = {47D0DC8C-D707-4D8A-A578-7737AA9CE79B}
 		{9AD9C469-B121-47BB-9B9F-30D1B96B52B0} = {47D0DC8C-D707-4D8A-A578-7737AA9CE79B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E667E2F4-BFCF-4187-A0E7-69883146951D}
 	EndGlobalSection
 EndGlobal

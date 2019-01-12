@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2014 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -6,6 +6,10 @@ using System;
 
 namespace CefSharp
 {
+    /// <summary>
+    /// Class used to represent a single element in the request post data.
+    /// The methods of this class may be called on any thread. 
+    /// </summary>
     public interface IPostDataElement : IDisposable
     {
         /// <summary>

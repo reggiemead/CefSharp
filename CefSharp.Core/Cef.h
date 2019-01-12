@@ -1,4 +1,4 @@
-// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
+// Copyright © 2013 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -12,14 +12,14 @@
 #include <include/cef_origin_whitelist.h>
 #include <include/cef_web_plugin.h>
 #include <include/cef_crash_util.h>
+#include <include/internal/cef_types.h>
 
 #include "Internals/CefSharpApp.h"
 #include "Internals/PluginVisitor.h"
 #include "Internals/CefTaskScheduler.h"
-#include "Internals/CefGetGeolocationCallbackAdapter.h"
 #include "Internals/CefRegisterCdmCallbackAdapter.h"
 #include "CookieManager.h"
-#include "CefSettings.h"
+#include "AbstractCefSettings.h"
 #include "RequestContext.h"
 #include "SchemeHandlerFactoryWrapper.h"
 
@@ -27,7 +27,7 @@
 #include "Safe/CefWebPluginInfoVisitorSafe.h"
 #include "Safe/CefSchemeHandlerFactorySafe.h"
 
-using namespace System::Collections::Generic; 
+using namespace System::Collections::Generic;
 using namespace System::Linq;
 using namespace System::Reflection;
 using namespace msclr::interop;
@@ -115,7 +115,7 @@ namespace CefSharp
             {
                 // Need explicit cast here to avoid C4965 warning when the minor version is zero.
                 return String::Format("{0}.{1}.{2}.{3}",
-                    CHROME_VERSION_MAJOR, (Object^) CHROME_VERSION_MINOR,
+                    CHROME_VERSION_MAJOR, (Object^)CHROME_VERSION_MINOR,
                     CHROME_VERSION_BUILD, CHROME_VERSION_PATCH);
             }
         }
@@ -133,28 +133,14 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Initializes CefSharp with the default settings. 
-        /// This function can only be called once, subsiquent calls will result in an Exception.
-        /// It's important to note that Initialize and Shutdown <strong>MUST</strong> be called on your main
-        /// applicaiton thread (Typically the UI thead). If you call them on different
-        /// threads, your application will hang. See the documentation for Cef.Shutdown() for more details.
-        /// </summary>
-        /// <return>true if successful; otherwise, false.</return>
-        static bool Initialize()
-        {
-            auto cefSettings = gcnew CefSettings();
-            return Initialize(cefSettings);
-        }
-
-        /// <summary>
         /// Initializes CefSharp with user-provided settings.
         /// It's important to note that Initialize and Shutdown <strong>MUST</strong> be called on your main
         /// applicaiton thread (Typically the UI thead). If you call them on different
         /// threads, your application will hang. See the documentation for Cef.Shutdown() for more details.
         /// </summary>
         /// <param name="cefSettings">CefSharp configuration settings.</param>
-        /// <return>true if successful; otherwise, false.</return>
-        static bool Initialize(CefSettings^ cefSettings)
+        /// <returns>true if successful; otherwise, false.</returns>
+        static bool Initialize(AbstractCefSettings^ cefSettings)
         {
             return Initialize(cefSettings, false, nullptr);
         }
@@ -167,21 +153,26 @@ namespace CefSharp
         /// </summary>
         /// <param name="cefSettings">CefSharp configuration settings.</param>
         /// <param name="performDependencyCheck">Check that all relevant dependencies avaliable, throws exception if any are missing</param>
-        /// <return>true if successful; otherwise, false.</return>
-        static bool Initialize(CefSettings^ cefSettings, bool performDependencyCheck, IBrowserProcessHandler^ browserProcessHandler)
+        /// <param name="browserProcessHandler">The handler for functionality specific to the browser process. Null if you don't wish to handle these events</param>
+        /// <returns>true if successful; otherwise, false.</returns>
+        static bool Initialize(AbstractCefSettings^ cefSettings, bool performDependencyCheck, IBrowserProcessHandler^ browserProcessHandler)
         {
             if (IsInitialized)
             {
                 // NOTE: Can only initialize Cef once, to make this explicitly clear throw exception on subsiquent attempts
-                throw gcnew Exception("Cef can only be initialized once. Use Cef.IsInitialized to guard against this exception.");
+                throw gcnew Exception("CEF can only be initialized once per process. This is a limitation of the underlying " +
+                    "CEF/Chromium framework. You can change many (not all) settings at runtime through RequestContext.SetPreference. " +
+                    "See https://github.com/cefsharp/CefSharp/wiki/General-Usage#request-context-browser-isolation " +
+                    "Use Cef.IsInitialized to guard against this exception. If you are seeing this unexpectedly then you are likely " +
+                    "calling Cef.Initialize after you've created an instance of ChromiumWebBrowser, it must be before the first instance is created.");
             }
-            
+
             if (cefSettings->BrowserSubprocessPath == nullptr)
             {
                 throw gcnew Exception("CefSettings BrowserSubprocessPath cannot be null.");
             }
 
-            if(performDependencyCheck)
+            if (performDependencyCheck)
             {
                 DependencyChecker::AssertAllDependenciesPresent(cefSettings->Locale, cefSettings->LocalesDirPath, cefSettings->ResourcesDirPath, cefSettings->PackLoadingDisabled, cefSettings->BrowserSubprocessPath);
             }
@@ -290,6 +281,7 @@ namespace CefSharp
         /// <param name="allowTargetSubdomains">If set to true would allow a blah.example.com if the 
         ///     <paramref name="targetDomain"/> was set to example.com
         /// </param>
+        /// <returns>Returns false if is invalid or the whitelist cannot be accessed.</returns>
         /// <remarks>
         /// The same-origin policy restricts how scripts hosted from different origins
         /// (scheme + domain + port) can communicate. By default, scripts can only access
@@ -331,10 +323,10 @@ namespace CefSharp
             bool allowTargetSubdomains)
         {
             return CefAddCrossOriginWhitelistEntry(
-                    StringUtils::ToNative(sourceOrigin),
-                    StringUtils::ToNative(targetProtocol),
-                    StringUtils::ToNative(targetDomain),
-                    allowTargetSubdomains);
+                StringUtils::ToNative(sourceOrigin),
+                StringUtils::ToNative(targetProtocol),
+                StringUtils::ToNative(targetDomain),
+                allowTargetSubdomains);
         }
 
         /// <summary>Remove entry from cross-origin whitelist</summary>
@@ -374,9 +366,29 @@ namespace CefSharp
         /// <summary>
         /// Returns the global cookie manager.
         /// </summary>
+        /// <returns>A the global cookie manager</returns>
         static ICookieManager^ GetGlobalCookieManager()
         {
             auto cookieManager = CefCookieManager::GetGlobalManager(NULL);
+            if (cookieManager.get())
+            {
+                return gcnew CookieManager(cookieManager);
+            }
+            return nullptr;
+        }
+
+        /// <summary>
+        ///  Returns a cookie manager that neither stores nor retrieves cookies. All
+        /// usage of cookies will be blocked including cookies accessed via the network
+        /// (request/response headers), via JavaScript (document.cookie), and via
+        /// CefCookieManager methods. No cookies will be displayed in DevTools. If you
+        /// wish to only block cookies sent via the network use the IRequestHandler
+        /// CanGetCookies and CanSetCookie methods instead.
+        /// </summary>
+        /// <returns>A blocking cookie manager</returns>
+        static ICookieManager^ GetBlockingCookieManager()
+        {
+            auto cookieManager = CefCookieManager::GetBlockingManager();
             if (cookieManager.get())
             {
                 return gcnew CookieManager(cookieManager);
@@ -402,7 +414,10 @@ namespace CefSharp
                 {
                     if (_initializedThreadId != Thread::CurrentThread->ManagedThreadId)
                     {
-                        throw gcnew Exception("Shutdown must be called on the same thread that Initialize was called - typically your UI thread. CefSharp was initialized on ManagedThreadId: " + Thread::CurrentThread->ManagedThreadId);
+                        throw gcnew Exception("Cef.Shutdown must be called on the same thread that Cef.Initialize was called - typically your UI thread." +
+                            "If you called Cef.Initialize on a Thread other than the UI thread then you will need to call Cef.Shutdown on the same thread." +
+                            "Cef.Initialize was called on ManagedThreadId: " + _initializedThreadId + "where Cef.Shutdown is being called on" +
+                            "ManagedThreadId:" + Thread::CurrentThread->ManagedThreadId);
                     }
 
                     UIThreadTaskFactory = nullptr;
@@ -413,7 +428,7 @@ namespace CefSharp
                     {
                         delete diposable;
                     }
-                
+
                     GC::Collect();
                     GC::WaitForPendingFinalizers();
 
@@ -438,9 +453,32 @@ namespace CefSharp
         }
 
         /// <summary>
+        /// This method should only be used by advanced users, if you're unsure then use Cef.Shutdown().
+        /// This function should be called on the main application thread to shut down
+        /// the CEF browser process before the application exits. This method simply obtains a lock
+        /// and calls the native CefShutdown method, only IsInitialized is checked. All ChromiumWebBrowser
+        /// instances MUST be Disposed of before calling this method. If calling this method results in a crash
+        /// or hangs then you're likely hanging on to some unmanaged resources or haven't closed all of your browser
+        /// instances
+        /// </summary>
+        static void ShutdownWithoutChecks()
+        {
+            if (IsInitialized)
+            {
+                msclr::lock l(_sync);
+
+                if (IsInitialized)
+                {
+                    CefShutdown();
+                    IsInitialized = false;
+                }
+            }
+        }
+
+        /// <summary>
         /// Clear all registered scheme handler factories.
         /// </summary>
-        /// <return>Returns false on error.</return>
+        /// <returns>Returns false on error.</returns>
         static bool ClearSchemeHandlerFactories()
         {
             return CefClearSchemeHandlerFactories();
@@ -458,13 +496,13 @@ namespace CefSharp
         /// Async returns a list containing Plugin Information
         /// (Wrapper around CefVisitWebPluginInfo)
         /// </summary>
-        /// <return>Returns List of <see cref="Plugin"/> structs.</return>
+        /// <returns>Returns List of <see cref="Plugin"/> structs.</returns>
         static Task<List<WebPluginInfo^>^>^ GetPlugins()
         {
             auto taskVisitor = gcnew TaskWebPluginInfoVisitor();
             CefRefPtr<PluginVisitor> pluginVisitor = new PluginVisitor(taskVisitor);
             CefRefPtr<CefWebPluginInfoVisitorSafe> visitor = new CefWebPluginInfoVisitorSafe(pluginVisitor);
-            
+
             CefVisitWebPluginInfo(visitor);
 
             return taskVisitor->Task;
@@ -498,37 +536,9 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Request a one-time geolocation update.
-        /// This function bypasses any user permission checks so should only be
-        /// used by code that is allowed to access location information. 
-        /// </summary>
-        /// <return>Returns 'best available' location info or, if the location update failed, with error info.</return>
-        static bool GetGeolocation(IGetGeolocationCallback^ callback)
-        {
-            CefRefPtr<CefGetGeolocationCallback> wrapper = callback == nullptr ? NULL : new CefGetGeolocationCallbackAdapter(callback);
-
-            return CefGetGeolocation(wrapper);
-        }
-
-        /// <summary>
-        /// Request a one-time geolocation update.
-        /// This function bypasses any user permission checks so should only be
-        /// used by code that is allowed to access location information. 
-        /// </summary>
-        /// <return>Returns 'best available' location info or, if the location update failed, with error info.</return>
-        static Task<Geoposition^>^ GetGeolocationAsync()
-        {
-            auto callback = gcnew TaskGetGeolocationCallback();
-            
-            GetGeolocation(callback);
-
-            return callback->Task;
-        }
-
-        /// <summary>
         /// Returns true if called on the specified CEF thread.
         /// </summary>
-        /// <return>Returns true if called on the specified thread.</return>
+        /// <returns>Returns true if called on the specified thread.</returns>
         static bool CurrentlyOnThread(CefThreadIds threadId)
         {
             return CefCurrentlyOn((CefThreadId)threadId);
@@ -537,7 +547,7 @@ namespace CefSharp
         /// <summary>
         /// Gets the Global Request Context. Make sure to Dispose of this object when finished.
         /// </summary>
-        /// <return>Returns the global request context or null.</return>
+        /// <returns>Returns the global request context or null.</returns>
         static IRequestContext^ GetGlobalRequestContext()
         {
             auto context = CefRequestContext::GetGlobalContext();
@@ -551,6 +561,20 @@ namespace CefSharp
         }
 
         /// <summary>
+        /// Helper function (wrapper around the CefColorSetARGB macro) which combines
+        /// the 4 color components into an uint32 for use with BackgroundColor property
+        /// </summary>
+        /// <param name="a">Alpha</param>
+        /// <param name="r">Red</param>
+        /// <param name="g">Green</param>
+        /// <param name="b">Blue</param>
+        /// <returns>Returns the color.</returns>
+        static uint32 ColorSetARGB(uint32 a, uint32 r, uint32 g, uint32 b)
+        {
+            return CefColorSetARGB(a, r, g, b);
+        }
+
+        /// <summary>
         /// Crash reporting is configured using an INI-style config file named
         /// crash_reporter.cfg. This file must be placed next to
         /// the main application executable. File contents are as follows:
@@ -558,62 +582,61 @@ namespace CefSharp
         ///  # Comments start with a hash character and must be on their own line.
         ///
         ///  [Config]
-        ///  ProductName=<Value of the "prod" crash key; defaults to "cef">
-        ///  ProductVersion=<Value of the "ver" crash key; defaults to the CEF version>
-        ///  AppName=<Windows only; App-specific folder name component for storing crash
-        ///           information; default to "CEF">
-        ///  ExternalHandler=<Windows only; Name of the external handler exe to use
+        ///  ProductName=&lt;Value of the &quot;prod&quot; crash key; defaults to &quot;cef&quot;&gt;
+        ///  ProductVersion=&lt;Value of the &quot;ver&quot; crash key; defaults to the CEF version&gt;
+        ///  AppName=&lt;Windows only; App-specific folder name component for storing crash
+        ///           information; default to &quot;CEF&quot;&gt;
+        ///  ExternalHandler=&lt;Windows only; Name of the external handler exe to use
         ///                   instead of re-launching the main exe; default to empty>
-        ///  ServerURL=<crash server URL; default to empty>
-        ///  RateLimitEnabled=<True if uploads should be rate limited; default to true>
-        ///  MaxUploadsPerDay=<Max uploads per 24 hours, used if rate limit is enabled;
-        ///                    default to 5>
-        ///  MaxDatabaseSizeInMb=<Total crash report disk usage greater than this value
-        ///                       will cause older reports to be deleted; default to 20>
-        ///  MaxDatabaseAgeInDays=<Crash reports older than this value will be deleted;
-        ///                        default to 5>
+        ///  ServerURL=&lt;crash server URL; default to empty&gt;
+        ///  RateLimitEnabled=&lt;True if uploads should be rate limited; default to true&gt;
+        ///  MaxUploadsPerDay=&lt;Max uploads per 24 hours, used if rate limit is enabled;
+        ///                    default to 5&gt;
+        ///  MaxDatabaseSizeInMb=&lt;Total crash report disk usage greater than this value
+        ///                       will cause older reports to be deleted; default to 20&gt;
+        ///  MaxDatabaseAgeInDays=&lt;Crash reports older than this value will be deleted;
+        ///                        default to 5&gt;
         ///
         ///  [CrashKeys]
-        ///  my_key1=<small|medium|large>
-        ///  my_key2=<small|medium|large>
+        ///  my_key1=&lt;small|medium|large&gt;
+        ///  my_key2=&lt;small|medium|large&gt;
         ///
         /// Config section:
         ///
-        /// If "ProductName" and/or "ProductVersion" are set then the specified values
+        /// If &quot;ProductName&quot; and/or &quot;ProductVersion&quot; are set then the specified values
         /// will be included in the crash dump metadata. 
         ///
-        /// If "AppName" is set on Windows then crash report information (metrics,
+        /// If &quot;AppName&quot; is set on Windows then crash report information (metrics,
         /// database and dumps) will be stored locally on disk under the
-        /// "C:\Users\[CurrentUser]\AppData\Local\[AppName]\User Data" folder. On other
-        /// platforms the CefSettings.user_data_path value will be used.
+        /// &quot;C:\Users\[CurrentUser]\AppData\Local\[AppName]\User Data&quot; folder. 
         ///
-        /// If "ExternalHandler" is set on Windows then the specified exe will be
+        /// If &quot;ExternalHandler&quot; is set on Windows then the specified exe will be
         /// launched as the crashpad-handler instead of re-launching the main process
         /// exe. The value can be an absolute path or a path relative to the main exe
         /// directory. 
         ///
-        /// If "ServerURL" is set then crashes will be uploaded as a multi-part POST
+        /// If &quot;ServerURL&quot; is set then crashes will be uploaded as a multi-part POST
         /// request to the specified URL. Otherwise, reports will only be stored locally
         /// on disk.
         ///
-        /// If "RateLimitEnabled" is set to true then crash report uploads will be rate
+        /// If &quot;RateLimitEnabled&quot; is set to true then crash report uploads will be rate
         /// limited as follows:
-        ///  1. If "MaxUploadsPerDay" is set to a positive value then at most the
+        ///  1. If &quot;MaxUploadsPerDay&quot; is set to a positive value then at most the
         ///     specified number of crashes will be uploaded in each 24 hour period.
         ///  2. If crash upload fails due to a network or server error then an
         ///     incremental backoff delay up to a maximum of 24 hours will be applied for
         ///     retries.
-        ///  3. If a backoff delay is applied and "MaxUploadsPerDay" is > 1 then the
-        ///     "MaxUploadsPerDay" value will be reduced to 1 until the client is
+        ///  3. If a backoff delay is applied and &quot;MaxUploadsPerDay&quot; is > 1 then the
+        ///     &quot;MaxUploadsPerDay&quot; value will be reduced to 1 until the client is
         ///     restarted. This helps to avoid an upload flood when the network or
         ///     server error is resolved.
         ///
-        /// If "MaxDatabaseSizeInMb" is set to a positive value then crash report storage
+        /// If &quot;MaxDatabaseSizeInMb&quot; is set to a positive value then crash report storage
         /// on disk will be limited to that size in megabytes. For example, on Windows
-        /// each dump is about 600KB so a "MaxDatabaseSizeInMb" value of 20 equates to
+        /// each dump is about 600KB so a &quot;MaxDatabaseSizeInMb&quot; value of 20 equates to
         /// about 34 crash reports stored on disk.
         ///
-        /// If "MaxDatabaseAgeInDays" is set to a positive value then crash reports older
+        /// If &quot;MaxDatabaseAgeInDays&quot; is set to a positive value then crash reports older
         /// than the specified age in days will be deleted.
         ///
         /// CrashKeys section:
@@ -624,10 +647,10 @@ namespace CefSharp
         /// from any thread or process using the Cef.SetCrashKeyValue function. These
         /// key/value pairs will be sent to the crash server along with the crash dump
         /// file. Medium and large values will be chunked for submission. For example,
-        /// if your key is named "mykey" then the value will be broken into ordered
-        /// chunks and submitted using keys named "mykey-1", "mykey-2", etc.
+        /// if your key is named &quot;mykey&quot; then the value will be broken into ordered
+        /// chunks and submitted using keys named &quot;mykey-1&quot;, &quot;mykey-2&quot;, etc.
         /// </summary>
-        /// <return>Returns the global request context or null.</return>
+        /// <returns>Returns true if crash reporting is enabled.</returns>
         static property bool CrashReportingEnabled
         {
             bool get()
@@ -650,7 +673,7 @@ namespace CefSharp
         /// The client application is responsible for downloading an appropriate
         /// platform-specific CDM binary distribution from Google, extracting the
         /// contents, and building the required directory structure on the local machine.
-        /// The <see cref="IBrowserHost.StartDownload"/> method class can be used
+        /// The <see cref="CefSharp.IBrowserHost.StartDownload"/> method class can be used
         /// to implement this functionality in CefSharp. Contact Google via
         /// https://www.widevine.com/contact.html for details on CDM download.
         /// 
@@ -664,7 +687,7 @@ namespace CefSharp
         ///
         /// If any of these files are missing or if the manifest file has incorrect
         /// contents the registration will fail and callback will receive an ErrorCode
-        /// value of <see cref="CdmRegistrationErrorCode.IncorrectContents"/>.
+        /// value of <see cref="CefSharp.CdmRegistrationErrorCode.IncorrectContents"/>.
         ///
         /// The manifest.json file must contain the following keys:
         ///   A. "os": Supported OS (e.g. "mac", "win" or "linux").
@@ -703,11 +726,11 @@ namespace CefSharp
         /// See <see cref="RegisterWidevineCdm(String, IRegisterCdmCallback)"/> for more details.
         /// </summary>
         /// <param name="path"> is a directory that contains the Widevine CDM files</param>
-        /// <return>Returns a Task that can be awaited to receive the <see cref="CdmRegistration"/> response.</return>
+        /// <returns>Returns a Task that can be awaited to receive the <see cref="CdmRegistration"/> response.</returns>
         static Task<CdmRegistration^>^ RegisterWidevineCdmAsync(String^ path)
         {
             auto callback = gcnew TaskRegisterCdmCallback();
-            
+
             RegisterWidevineCdm(path, callback);
 
             return callback->Task;
